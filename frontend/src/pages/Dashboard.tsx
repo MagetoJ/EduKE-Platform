@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { formatCurrency } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { ArrowUp, AlertTriangle, FileText } from 'lucide-react';
+import { ArrowUp, AlertTriangle, FileText, Users, GraduationCap, BookOpen, Award } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePermissions } from '@/hooks/usePermissions';
 import { BranchSelector } from '@/components/BranchSelector';
@@ -30,7 +30,6 @@ const STORAGE_KEY = 'dashboard-date-range';
 export function Dashboard() {
   const { token, user } = useAuth();
   const permissions = usePermissions();
-  const isAdmin = user?.role === 'admin';
   const isStaff = user?.role === 'staff';
 
   const [stats, setStats] = useState<DashboardStats | null>(() => {
@@ -120,7 +119,7 @@ export function Dashboard() {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 flex items-center gap-2">
-            {isStaff ? 'My Performance' : 'Dashboard'}
+            {isStaff ? 'My Performance' : 'School Dashboard'}
             {isOffline && (
               <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3" />
@@ -129,7 +128,7 @@ export function Dashboard() {
             )}
           </h1>
           <p className="text-sm md:text-base text-gray-600 mt-1">
-            Welcome back! Here's your business overview.
+            Welcome back! Here's your school overview.
           </p>
         </div>
 
@@ -160,163 +159,160 @@ export function Dashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
-        {/* Total Revenue Card */}
-        <Card className="overflow-hidden">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        {/* Total Students Card */}
+        <Card className="overflow-hidden border-indigo-100 bg-white">
           <CardContent className="p-6">
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600">Total Revenue</p>
-              <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-2">
-                {formatCurrency(report?.total_revenue || 0)}
-              </p>
-              <div className="flex items-center gap-1 mt-2 text-sm text-green-600">
-                <ArrowUp className="w-4 h-4" />
-                <span>{selectedOption.label}</span>
+            <div className="flex items-center gap-4">
+              <div className="bg-indigo-100 p-3 rounded-lg text-indigo-600">
+                <Users className="w-6 h-6" />
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Total Expenses Card */}
-        <Card className="overflow-hidden border-red-200 bg-red-50">
-          <CardContent className="p-6">
-            <div className="flex-1">
-              <p className="text-sm font-medium text-red-700">Total Expenses</p>
-              <p className="text-2xl md:text-3xl font-bold text-red-900 mt-2">
-                {formatCurrency(report?.total_expenses || 0)}
-              </p>
-              <div className="flex items-center gap-1 mt-2 text-sm text-red-600">
-                <Link to="/expenses" className="hover:underline">
-                  View Details →
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600">Active Students</p>
+                <p className="text-2xl font-bold text-gray-900 mt-0.5">
+                  {stats?.total_students || 0}
+                </p>
+                <Link to="/customers" className="text-xs text-indigo-600 hover:underline mt-1 inline-block">
+                  View Directory →
                 </Link>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Net Profit Card */}
-        <Card className="overflow-hidden border-blue-200 bg-blue-50">
+        {/* Total Classes Card */}
+        <Card className="overflow-hidden border-emerald-100 bg-white">
           <CardContent className="p-6">
-            <div className="flex-1">
-              <p className="text-sm font-medium text-blue-700">Net Profit</p>
-              <p className="text-2xl md:text-3xl font-bold text-blue-900 mt-2">
-                {formatCurrency((report?.total_profit || 0) - (report?.total_expenses || 0))}
-              </p>
-              <div className="flex items-center gap-1 mt-2 text-sm text-blue-600">
-                <span>
-                  Gross: {formatCurrency(report?.total_profit || 0)}
-                </span>
+            <div className="flex items-center gap-4">
+              <div className="bg-emerald-100 p-3 rounded-lg text-emerald-600">
+                <GraduationCap className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600">Total Classes</p>
+                <p className="text-2xl font-bold text-gray-900 mt-0.5">
+                  {stats?.total_classes || 0}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Across all streams</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Total Sales Card */}
-        <Card className="overflow-hidden">
+        {/* Total Subjects Card */}
+        <Card className="overflow-hidden border-amber-100 bg-white">
           <CardContent className="p-6">
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600">Total Sales</p>
-              <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-2">
-                {report?.revenue_by_date?.reduce((sum, day) => sum + day.orders, 0) || 0}
-              </p>
-              <div className="flex items-center gap-1 mt-2 text-sm text-gray-600">
-                <span>{selectedOption.label}</span>
+            <div className="flex items-center gap-4">
+              <div className="bg-amber-100 p-3 rounded-lg text-amber-600">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600">Subjects Offered</p>
+                <p className="text-2xl font-bold text-gray-900 mt-0.5">
+                  {stats?.total_subjects || 0}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Academic curriculum</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Inventory Health Card */}
-        <Card className="overflow-hidden">
+        {/* Academic Performance Card */}
+        <Card className="overflow-hidden border-rose-100 bg-white">
           <CardContent className="p-6">
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-600">Inventory Health</p>
-              <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-2">
-                {stats?.total_products || 0}
-              </p>
-              <div className={`flex items-center gap-1 mt-2 text-sm ${
-                stats?.low_stock_items ? 'text-red-600 font-semibold' : 'text-gray-600'
-              }`}>
-                {stats?.low_stock_items ? (
-                  <AlertTriangle className="w-4 h-4" />
-                ) : null}
-                <span>{stats?.low_stock_items || 0} Low Stock</span>
+            <div className="flex items-center gap-4">
+              <div className="bg-rose-100 p-3 rounded-lg text-rose-600">
+                <Award className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-600">Avg. Performance</p>
+                <p className="text-2xl font-bold text-gray-900 mt-0.5">
+                  {(stats?.avg_grade || 0).toFixed(1)}%
+                </p>
+                <Link to="/gradebook" className="text-xs text-rose-600 hover:underline mt-1 inline-block">
+                  View Gradebook →
+                </Link>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Financial Summary Card - Shows Gross Profit breakdown */}
-      {isAdmin && (
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-green-900">Gross Profit (Revenue - COGS)</h3>
-                <p className="text-xs text-green-700 mt-1">
-                  Revenue minus Cost of Goods Sold
-                  {report?.total_revenue && report.total_revenue > 0
-                    ? ` • ${((report.total_profit / report.total_revenue) * 100).toFixed(1)}% margin`
-                    : ''}
-                </p>
+      {/* Financial & Academic Overview Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Fee Collection Card */}
+        <Card className="lg:col-span-1 border-primary-100 bg-primary-50/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-primary-900">Fee Collection Summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-primary-900">
+              {formatCurrency(report?.total_revenue || 0)}
+            </p>
+            <div className="flex items-center gap-1 mt-2 text-sm text-primary-700">
+              <ArrowUp className="w-4 h-4" />
+              <span>{selectedOption.label}</span>
+            </div>
+            <div className="mt-4 pt-4 border-t border-primary-100 space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-primary-700">School Expenses</span>
+                <span className="font-semibold text-red-600">{formatCurrency(report?.total_expenses || 0)}</span>
               </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-green-900">{formatCurrency(report?.total_profit || 0)}</p>
-                {stats?.total_stock_value !== null && (
-                  <p className="text-xs text-green-700 mt-1">Stock Value: {formatCurrency(stats?.total_stock_value || 0)}</p>
-                )}
+              <div className="flex justify-between text-sm">
+                <span className="text-primary-700">Net Surplus</span>
+                <span className="font-bold text-green-700">
+                  {formatCurrency((report?.total_profit || 0) - (report?.total_expenses || 0))}
+                </span>
               </div>
             </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* Revenue Trend Chart - Hidden for "Today" view */}
-      {selectedDateRange !== 'today' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg md:text-xl">
-              {isStaff ? `My Revenue Trend (${selectedOption.label})` : `Revenue Trend (${selectedOption.label})`}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={report?.revenue_by_date || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 12 }}
-                  stroke="#9ca3af"
-                />
-                <YAxis
-                  tick={{ fontSize: 12 }}
-                  stroke="#9ca3af"
-                />
-                <Tooltip
-                  formatter={(value: number) => formatCurrency(value)}
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
-                  }}
-                />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#16a34a"
-                  strokeWidth={2}
-                  name="Revenue"
-                  dot={{ fill: '#16a34a', r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
+        {/* Collection Trend Chart - Hidden for "Today" view */}
+        {selectedDateRange !== 'today' && (
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle className="text-lg md:text-xl">
+                {isStaff ? `My Collection Trend (${selectedOption.label})` : `Collection Trend (${selectedOption.label})`}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={report?.revenue_by_date || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12 }}
+                    stroke="#9ca3af"
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12 }}
+                    stroke="#9ca3af"
+                  />
+                  <Tooltip
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={{
+                      backgroundColor: 'white',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                    }}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#16a34a"
+                    strokeWidth={2}
+                    name="Fees"
+                    dot={{ fill: '#16a34a', r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* View Detailed Reports Link */}
       <Card className="bg-gradient-to-r from-primary-50 to-blue-50 border-primary-200">
@@ -328,6 +324,7 @@ export function Dashboard() {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900">Need More Insights?</h3>
+                <p className="text-sm text-gray-600 mt-1">Access detailed academic and financial reports.</p>
               </div>
             </div>
             <Link to="/reports">

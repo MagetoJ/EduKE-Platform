@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
 from datetime import datetime, date
 from enum import Enum
-from models import UserRole, OrgRole, OrderStatus, StockMovementType, SubscriptionPlan
+from models import UserRole, OrgRole, OrderStatus, StockMovementType, SubscriptionPlan, AssessmentType
 
 
 # Receipt Delivery Method Enum
@@ -397,6 +397,10 @@ class ProductBase(BaseModel):
     reorder_level: Optional[int] = None  # Auto-calculated, not set by user
     is_available: bool = True
     is_service: bool = False  # NEW: Distinguish services from physical products
+    
+    # SCHOOL MANAGEMENT FIELDS
+    instructor_id: Optional[int] = None
+    academic_term_id: Optional[int] = None
 
 
 class ProductCreate(ProductBase):
@@ -417,6 +421,10 @@ class ProductUpdate(BaseModel):
     reorder_level: Optional[int] = Field(None, ge=0)
     is_available: Optional[bool] = None
     is_service: Optional[bool] = None  # NEW: Allow updating service flag (though UI prevents this)
+    
+    # SCHOOL MANAGEMENT FIELDS
+    instructor_id: Optional[int] = None
+    academic_term_id: Optional[int] = None
 
 
 class ProductResponse(ProductBase):
@@ -428,6 +436,10 @@ class ProductResponse(ProductBase):
     created_at: datetime
     updated_at: datetime
     category_rel: Optional['CategoryResponse'] = None  # Optional populated category
+    
+    # SCHOOL MANAGEMENT FIELDS
+    instructor_name: Optional[str] = None
+    academic_term_name: Optional[str] = None
     
     # Context-aware fields
     read_only: bool = False
@@ -546,12 +558,14 @@ class SaleCreate(BaseModel):
     notes: Optional[str] = None
     items: List[SaleItemCreate] = Field(min_length=1, description="At least one item required")
     customer_id: Optional[int] = None  # Required when payment_method is "Credit"
+    student_id: Optional[int] = None  # LINK TO STUDENT
     due_date: Optional[date] = None  # Required when payment_method is "Credit"; defaults to +30 days
 
 
 class SaleCustomerUpdate(BaseModel):
     """Schema for updating customer information on an existing sale"""
     customer_name: Optional[str] = None
+    student_id: Optional[int] = None  # LINK TO STUDENT
     customer_email: Optional[EmailStr] = None
     customer_phone: Optional[str] = None
 
@@ -566,6 +580,8 @@ class SaleResponse(BaseModel):
     tenant_id: int
     user_id: int
     branch_id: Optional[int] = None  # NEW: Track which branch created the sale
+    customer_id: Optional[int] = None
+    student_id: Optional[int] = None  # LINK TO STUDENT
     customer_name: Optional[str] = None
     customer_email: Optional[str] = None  # Customer email for receipt delivery
     customer_phone: Optional[str] = None  # Customer phone for WhatsApp receipt
@@ -592,10 +608,17 @@ class DashboardStats(BaseModel):
     total_revenue: float
     total_sales: int
     total_products: int
+    total_customers: int  # Rebranded as total_students in school mode
     low_stock_items: int
     total_stock_value: Optional[float] = None  # Optional - hidden from staff users
     today_revenue: float
     today_sales: int
+    
+    # NEW: School Management Metrics
+    total_students: int = 0
+    total_classes: int = 0
+    total_subjects: int = 0
+    avg_grade: float = 0.0
 
 
 class RevenueByDate(BaseModel):
@@ -1189,6 +1212,186 @@ class ExpenseResponse(BaseModel):
     expense_date: date
     created_at: datetime
     updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ============================================================================
+# School Management Schemas
+# ============================================================================
+
+# GradeLevel Schemas
+class GradeLevelBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    level: Optional[int] = None
+    stream: Optional[str] = Field(None, max_length=50)
+    teacher_id: Optional[int] = None
+
+class GradeLevelCreate(GradeLevelBase):
+    pass
+
+class GradeLevelUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    level: Optional[int] = None
+    stream: Optional[str] = Field(None, max_length=50)
+    teacher_id: Optional[int] = None
+
+class GradeLevelResponse(GradeLevelBase):
+    id: int
+    tenant_id: int
+    created_at: datetime
+    updated_at: datetime
+    teacher_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# AcademicTerm Schemas
+class AcademicTermBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    start_date: date
+    end_date: date
+    is_current: bool = False
+
+class AcademicTermCreate(AcademicTermBase):
+    pass
+
+class AcademicTermUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    is_current: Optional[bool] = None
+
+class AcademicTermResponse(AcademicTermBase):
+    id: int
+    tenant_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Subject Schemas
+class SubjectBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    code: Optional[str] = Field(None, max_length=20)
+    description: Optional[str] = None
+
+class SubjectCreate(SubjectBase):
+    pass
+
+class SubjectUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    code: Optional[str] = Field(None, max_length=20)
+    description: Optional[str] = None
+
+class SubjectResponse(SubjectBase):
+    id: int
+    tenant_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Student Schemas
+class StudentBase(BaseModel):
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    admission_number: str = Field(..., min_length=1, max_length=50)
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = Field(None, max_length=20)
+    grade_level_id: Optional[int] = None
+    parent_name: Optional[str] = Field(None, max_length=100)
+    parent_phone: Optional[str] = Field(None, max_length=20)
+    parent_email: Optional[EmailStr] = None
+    user_id: Optional[int] = None
+    customer_id: Optional[int] = None
+    is_active: bool = True
+
+class StudentCreate(StudentBase):
+    pass
+
+class StudentUpdate(BaseModel):
+    first_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    last_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    admission_number: Optional[str] = Field(None, min_length=1, max_length=50)
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = Field(None, max_length=20)
+    grade_level_id: Optional[int] = None
+    parent_name: Optional[str] = Field(None, max_length=100)
+    parent_phone: Optional[str] = Field(None, max_length=20)
+    parent_email: Optional[EmailStr] = None
+    user_id: Optional[int] = None
+    customer_id: Optional[int] = None
+    is_active: Optional[bool] = None
+
+class StudentResponse(StudentBase):
+    id: int
+    tenant_id: int
+    created_at: datetime
+    updated_at: datetime
+    grade_level_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Assessment Schemas
+class AssessmentBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    type: AssessmentType = AssessmentType.EXAM
+    term_id: int
+    max_marks: float = 100.0
+    weightage: float = 100.0
+    date: Optional[date] = None
+
+class AssessmentCreate(AssessmentBase):
+    pass
+
+class AssessmentUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    type: Optional[AssessmentType] = None
+    term_id: Optional[int] = None
+    max_marks: Optional[float] = None
+    weightage: Optional[float] = None
+    date: Optional[date] = None
+
+class AssessmentResponse(AssessmentBase):
+    id: int
+    tenant_id: int
+    created_at: datetime
+    term_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# GradeRecord Schemas
+class GradeRecordBase(BaseModel):
+    student_id: int
+    subject_id: int
+    assessment_id: int
+    marks_obtained: float
+    remarks: Optional[str] = None
+
+class GradeRecordCreate(GradeRecordBase):
+    pass
+
+class GradeRecordUpdate(BaseModel):
+    marks_obtained: Optional[float] = None
+    remarks: Optional[str] = None
+
+class GradeRecordResponse(GradeRecordBase):
+    id: int
+    tenant_id: int
+    created_at: datetime
+    updated_at: datetime
+    student_name: Optional[str] = None
+    subject_name: Optional[str] = None
+    assessment_name: Optional[str] = None
 
     class Config:
         from_attributes = True

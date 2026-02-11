@@ -30,7 +30,7 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, tenant_id: int, branch_id: Optional[int] = None, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, tenant_id: int, branch_id: Optional[int] = None, is_super_admin: bool = False, expires_delta: Optional[timedelta] = None):
     """Create a JWT access token with tenant and branch context"""
     to_encode = data.copy()
     if expires_delta:
@@ -41,7 +41,8 @@ def create_access_token(data: dict, tenant_id: int, branch_id: Optional[int] = N
     to_encode.update({
         "exp": expire,
         "tenant_id": tenant_id,  # Include tenant_id in token
-        "branch_id": branch_id  # NEW: Include branch_id in token (None for main tenant admins)
+        "branch_id": branch_id,  # NEW: Include branch_id in token (None for main tenant admins)
+        "is_super_admin": is_super_admin  # NEW: Include is_super_admin claim
     })
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -202,7 +203,8 @@ async def get_current_tenant(
             elif parent_membership.branch_id == current_tenant_from_token.id:
                 membership = parent_membership
 
-    if not membership:
+    # Allow platform-wide super admins to bypass membership check
+    if not membership and not current_user.is_super_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User does not have access to this tenant"
@@ -225,6 +227,10 @@ async def get_current_user_role_in_tenant(
         )
     )
     role = result.scalar_one_or_none()
+
+    # Super admins are always admins in any tenant
+    if not role and current_user.is_super_admin:
+        return "admin"
 
     # If no direct role and this is a branch, check parent membership
     if not role and current_tenant.parent_tenant_id:
@@ -266,7 +272,7 @@ async def require_admin_role(
         )
         role = result.scalar_one_or_none()
 
-    if role != "admin":
+    if role != "admin" and not current_user.is_super_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin privileges required"
@@ -323,9 +329,9 @@ async def get_user_role_type(
     Returns: 'owner', 'branch_admin', or 'staff'
 
     This determines the user's effective role type based on:
-    - admin role with is_owner=True OR no branch assignment (owner)
-    - admin role with branch_id assigned (branch_admin)
-    - staff role (staff)
+    - admin role with is_owner=True OR no campus assignment (owner/School Admin)
+    - admin role with branch_id assigned (campus_admin)
+    - staff role (staff/Teacher)
     """
     result = await db.execute(
         select(tenant_users.c.role, tenant_users.c.branch_id, tenant_users.c.is_owner)
@@ -336,6 +342,8 @@ async def get_user_role_type(
     )
     row = result.first()
     if not row:
+        if current_user.is_super_admin:
+            return "owner"  # Super admins have full owner privileges
         raise HTTPException(403, "Not a member of this tenant")
 
     role, branch_id, is_owner = row
@@ -378,9 +386,9 @@ async def get_branch_scope(
     db: AsyncSession = Depends(get_db)
 ) -> Optional[int]:
     """
-    Returns None for owner (tenant-wide access), branch_id for branch admin/staff.
+    Returns None for owner (school-wide access), branch_id for campus admin/staff.
 
-    This is used to automatically filter data by branch for non-owner users.
+    This is used to automatically filter data by campus for non-owner users.
     """
     role_type = await get_user_role_type(current_user, current_tenant, db)
     if role_type == "owner":

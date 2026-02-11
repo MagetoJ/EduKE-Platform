@@ -26,7 +26,7 @@ export function POS() {
   const { token, tenant } = useAuth();
   const { products: allProducts, isRefreshing, refreshProducts } = useProducts();
 
-  // Filter products for POS: available and has stock (or is a service)
+  // Filter products for Fee Collection: available and either is a service (course) or has stock
   const products = allProducts.filter((p: Product) => p.is_available && (p.is_service || p.quantity > 0));
 
   const [cart, setCart] = useState<CartItemWithPrice[]>([]);
@@ -37,9 +37,9 @@ export function POS() {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [showScanner, setShowScanner] = useState(false);
-  const [creditCustomer, setCreditCustomer] = useState<Customer | null>(null);
-  const [creditCustomerSearch, setCreditCustomerSearch] = useState('');
-  const [creditCustomers, setCreditCustomers] = useState<Customer[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+  const [studentSearch, setStudentSearch] = useState('');
+  const [students, setStudents] = useState<any[]>([]);
   const [creditDueDate, setCreditDueDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 30);
@@ -70,19 +70,19 @@ export function POS() {
     setShowScanner(false);
   }, [token]);
 
-  // Search customers when Credit is selected
+  // Search students
   useEffect(() => {
-    if (paymentMethod !== 'Credit' || !token) return;
+    if (!token) return;
     const timer = setTimeout(async () => {
       try {
-        const customers = await api.getCustomers(token, creditCustomerSearch || undefined);
-        setCreditCustomers(customers);
+        const data = await api.getStudents(token, undefined, true, studentSearch || undefined);
+        setStudents(data);
       } catch (err) {
-        console.error('Failed to fetch customers:', err);
+        console.error('Failed to fetch students:', err);
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [paymentMethod, creditCustomerSearch, token]);
+  }, [studentSearch, token]);
 
   // Auto-print receipt when a sale is completed (desktop only)
   useEffect(() => {
@@ -217,8 +217,8 @@ export function POS() {
       setLoading(false);
       return;
     }
-    if (paymentMethod === 'Credit' && !creditCustomer) {
-      setErrorMessage('Please select a customer for Credit payment');
+    if (paymentMethod === 'Arrears' && !selectedStudent) {
+      setErrorMessage('Please select a student for Arrears payment');
       setLoading(false);
       return;
     }
@@ -228,14 +228,15 @@ export function POS() {
 
     try {
       const saleData: SaleCreate = {
-        payment_method: paymentMethod,
+        payment_method: paymentMethod === 'Arrears' ? 'Credit' : paymentMethod,
         items: cart.map(item => ({
           product_id: item.product.id,
           quantity: item.quantity,
           custom_price: item.customPrice  // Include custom price if set
         })),
-        ...(paymentMethod === 'Credit' && creditCustomer ? {
-          customer_id: creditCustomer.id,
+        student_id: selectedStudent?.id,
+        ...(paymentMethod === 'Arrears' && selectedStudent ? {
+          customer_id: selectedStudent.id, // For backward compatibility if needed
           due_date: creditDueDate
         } : {})
       };
@@ -308,8 +309,8 @@ export function POS() {
       <div className="lg:hidden space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Point of Sale</h1>
-            <p className="text-sm text-gray-600">Select products to add to cart</p>
+            <h1 className="text-2xl font-bold text-gray-900">Fee Collection</h1>
+            <p className="text-sm text-gray-600">Select fees or courses to collect payment</p>
           </div>
           {cart.length > 0 && (
             <Button
@@ -367,12 +368,12 @@ export function POS() {
         {/* Product Selection Area */}
         <div className="flex-1 flex flex-col gap-6">
           <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-gray-900">Point of Sale</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Fee Collection</h1>
             <div className="flex gap-2">
               <div className="relative w-72">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search products..."
+                  placeholder="Search fees or courses..."
                   className="pl-10"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -382,7 +383,7 @@ export function POS() {
                 variant="outline"
                 size="icon"
                 onClick={() => navigate('/sales-history')}
-                title="Sales History"
+                title="Payment History"
               >
                 <History className="h-4 w-4" />
               </Button>
@@ -579,56 +580,69 @@ export function POS() {
             {/* Fixed at Bottom: Payment + Totals + Complete Button */}
             {cart.length > 0 && (
               <div className="border-t p-4 space-y-4 bg-gray-50 flex-shrink-0">
-                <select
-                  className="w-full h-10 px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
-                  value={paymentMethod}
-                  onChange={(e) => { setPaymentMethod(e.target.value); setCreditCustomer(null); }}
-                >
-                  <option value="Cash">Cash</option>
-                  <option value="M-Pesa">M-Pesa</option>
-                  <option value="Card">Card</option>
-                  <option value="Credit">Credit</option>
-                </select>
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-gray-700">Select Student</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search students (name or admission #)..."
+                      className="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      value={selectedStudent ? `${selectedStudent.first_name} ${selectedStudent.last_name} (${selectedStudent.admission_number})` : studentSearch}
+                      onChange={(e) => { setStudentSearch(e.target.value); setSelectedStudent(null); }}
+                    />
+                    {!selectedStudent && students.length > 0 && (
+                      <div className="absolute bottom-full left-0 right-0 mb-1 max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white shadow-xl z-50">
+                        {students.map(s => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                            onClick={() => { setSelectedStudent(s); setStudentSearch(''); }}
+                          >
+                            <div className="font-bold text-gray-900">{s.first_name} {s.last_name}</div>
+                            <div className="text-xs text-gray-500">
+                              Adm: {s.admission_number} • {s.grade_level_name || 'No Class'}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {selectedStudent && (
+                      <button 
+                        type="button"
+                        onClick={() => setSelectedStudent(null)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-                {paymentMethod === 'Credit' && (
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium text-gray-700">Payment Method</label>
+                  <select
+                    className="w-full h-10 px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="M-Pesa">M-Pesa</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Card">Card</option>
+                    <option value="Arrears">Arrears (Credit)</option>
+                  </select>
+                </div>
+
+                {paymentMethod === 'Arrears' && (
                   <div className="space-y-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Customer</label>
-                      <input
-                        type="text"
-                        placeholder="Search customers..."
-                        className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        value={creditCustomer ? creditCustomer.name : creditCustomerSearch}
-                        onChange={(e) => { setCreditCustomerSearch(e.target.value); setCreditCustomer(null); }}
-                      />
-                      {!creditCustomer && creditCustomers.length > 0 && (
-                        <div className="mt-1 max-h-32 overflow-y-auto border border-gray-200 rounded-lg bg-white">
-                          {creditCustomers.map(c => (
-                            <button
-                              key={c.id}
-                              type="button"
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
-                              onClick={() => { setCreditCustomer(c); setCreditCustomerSearch(''); }}
-                            >
-                              <div className="font-medium">{c.name}</div>
-                              {c.email && <div className="text-xs text-gray-500">{c.email}</div>}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {!creditCustomer && creditCustomerSearch && creditCustomers.length === 0 && (
-                        <p className="text-xs text-gray-500 mt-1">No customers found</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Due Date</label>
-                      <input
-                        type="date"
-                        value={creditDueDate}
-                        onChange={(e) => setCreditDueDate(e.target.value)}
-                        className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                      />
-                    </div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Fee Due Date</label>
+                    <input
+                      type="date"
+                      value={creditDueDate}
+                      onChange={(e) => setCreditDueDate(e.target.value)}
+                      className="w-full h-9 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
                   </div>
                 )}
 
@@ -858,47 +872,47 @@ export function POS() {
                   <select
                     className="w-full h-12 px-4 py-2 border border-gray-300 rounded-lg bg-white text-base focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
                     value={paymentMethod}
-                    onChange={(e) => { setPaymentMethod(e.target.value); setCreditCustomer(null); }}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
                   >
                     <option value="Cash">Cash</option>
                     <option value="M-Pesa">M-Pesa</option>
                     <option value="Card">Card</option>
-                    <option value="Credit">Credit</option>
+                    <option value="Arrears">Arrears (Credit)</option>
                   </select>
                 </div>
 
-                {paymentMethod === 'Credit' && (
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Customer</label>
+                    <label className="block text-xs font-medium text-gray-700">Select Student</label>
+                    <div className="relative">
                       <input
                         type="text"
-                        placeholder="Search customers..."
+                        placeholder="Search students..."
                         className="w-full h-11 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        value={creditCustomer ? creditCustomer.name : creditCustomerSearch}
-                        onChange={(e) => { setCreditCustomerSearch(e.target.value); setCreditCustomer(null); }}
+                        value={selectedStudent ? `${selectedStudent.first_name} ${selectedStudent.last_name}` : studentSearch}
+                        onChange={(e) => { setStudentSearch(e.target.value); setSelectedStudent(null); }}
                       />
-                      {!creditCustomer && creditCustomers.length > 0 && (
-                        <div className="mt-1 max-h-40 overflow-y-auto border border-gray-200 rounded-lg bg-white">
-                          {creditCustomers.map(c => (
+                      {!selectedStudent && students.length > 0 && (
+                        <div className="absolute bottom-full left-0 right-0 mb-1 max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white shadow-xl z-50">
+                          {students.map(s => (
                             <button
-                              key={c.id}
+                              key={s.id}
                               type="button"
-                              className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50"
-                              onClick={() => { setCreditCustomer(c); setCreditCustomerSearch(''); }}
+                              className="w-full text-left px-3 py-3 text-sm hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                              onClick={() => { setSelectedStudent(s); setStudentSearch(''); }}
                             >
-                              <div className="font-medium">{c.name}</div>
-                              {c.email && <div className="text-xs text-gray-500">{c.email}</div>}
+                              <div className="font-bold text-gray-900">{s.first_name} {s.last_name}</div>
+                              <div className="text-xs text-gray-500">Adm: {s.admission_number}</div>
                             </button>
                           ))}
                         </div>
                       )}
-                      {!creditCustomer && creditCustomerSearch && creditCustomers.length === 0 && (
-                        <p className="text-xs text-gray-500 mt-1">No customers found</p>
-                      )}
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Due Date</label>
+                  </div>
+
+                  {paymentMethod === 'Arrears' && (
+                    <div className="space-y-2">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Fee Due Date</label>
                       <input
                         type="date"
                         value={creditDueDate}
@@ -906,8 +920,8 @@ export function POS() {
                         className="w-full h-11 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                       />
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between text-gray-700">
@@ -975,10 +989,10 @@ export function POS() {
                 <span className="text-gray-600">Payment Method:</span>
                 <span className="font-medium text-gray-900">{paymentMethod}</span>
               </div>
-              {paymentMethod === 'Credit' && creditCustomer && (
+              {selectedStudent && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Customer:</span>
-                  <span className="font-medium text-gray-900">{creditCustomer.name}</span>
+                  <span className="text-gray-600">Student:</span>
+                  <span className="font-medium text-gray-900">{selectedStudent.first_name} {selectedStudent.last_name}</span>
                 </div>
               )}
               <div className="flex justify-between pt-2 border-t border-gray-200">

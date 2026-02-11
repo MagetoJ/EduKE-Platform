@@ -200,10 +200,10 @@ export function SalesHistory() {
       <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900">
-            {isStaff ? 'My Sales History' : 'Sales History'}
+            {isStaff ? 'My Payment History' : 'Fee Payment History'}
           </h1>
           <p className="text-sm md:text-base text-gray-600 mt-1">
-            View and track all sales transactions
+            View and track all fee payment transactions
           </p>
         </div>
 
@@ -230,7 +230,7 @@ export function SalesHistory() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                  <p className="text-sm font-medium text-gray-600">Total Collections</p>
                   <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-2">
                     {formatCurrency(summary.total_revenue)}
                   </p>
@@ -251,13 +251,13 @@ export function SalesHistory() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600">Total Sales</p>
+                  <p className="text-sm font-medium text-gray-600">Total Receipts</p>
                   <p className="text-2xl md:text-3xl font-bold text-gray-900 mt-2">
                     {summary.total_sales.toLocaleString()}
                   </p>
                   <div className="flex items-center gap-1 mt-2 text-sm text-blue-600">
                     <ShoppingCart className="w-4 h-4" />
-                    <span>{summary.total_sales} {summary.total_sales === 1 ? 'transaction' : 'transactions'}</span>
+                    <span>{summary.total_sales} {summary.total_sales === 1 ? 'payment' : 'payments'}</span>
                   </div>
                 </div>
                 <div className="bg-blue-100 text-blue-600 rounded-lg p-3">
@@ -273,7 +273,7 @@ export function SalesHistory() {
       <Card className="hidden lg:block">
         <CardHeader>
           <CardTitle className="text-lg md:text-xl">
-            Sales Transactions ({sales.length})
+            Payment Transactions ({sales.length})
           </CardTitle>
           <p className="text-sm text-gray-600 mt-1">
             Showing results for {selectedOption.label}
@@ -286,9 +286,9 @@ export function SalesHistory() {
                 <tr>
                   <th className="w-[50px]"></th>
                   <th className="p-4">Date</th>
-                  <th className="p-4">Customer</th>
-                  <th className="p-4">Branch</th>
-                  <th className="p-4">Staff</th>
+                  <th className="p-4 text-left">Student</th>
+                  <th className="p-4 text-left">Branch</th>
+                  <th className="p-4 text-left">Staff</th>
                   <th className="p-4 text-center">Items</th>
                   <th className="p-4 text-right">Total</th>
                   <th className="p-4 text-center">Payment</th>
@@ -310,7 +310,7 @@ export function SalesHistory() {
                         )}
                       </td>
                       <td className="p-4">{formatDate(sale.created_at)}</td>
-                      <td className="p-4 font-medium">{sale.customer_name || 'Walk-in Customer'}</td>
+                      <td className="p-4 font-medium">{sale.customer_name || 'Generic Student'}</td>
                       <td className="p-4">
                         {sale.branch ? (
                           <div className="flex flex-col">
@@ -421,12 +421,12 @@ export function SalesHistory() {
                               </div>
                             )}
 
-                            {/* Customer Information & Receipt Management */}
+                            {/* Student & Receipt Management */}
                             <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                               <div className="flex justify-between items-center mb-3">
                                 <h4 className="font-semibold text-gray-900 flex items-center gap-2">
                                   <Mail className="h-4 w-4" />
-                                  Customer & Receipt Management
+                                  Student & Receipt Management
                                 </h4>
                                 {editingSaleId === sale.id ? (
                                   <div className="flex gap-2">
@@ -452,28 +452,28 @@ export function SalesHistory() {
                               {editingSaleId === sale.id ? (
                                 <div className="space-y-2">
                                   <Input
-                                    placeholder="Customer Name"
+                                    placeholder="Student Name"
                                     value={customerName}
                                     onChange={(e) => setCustomerName(e.target.value)}
                                   />
                                   <Input
                                     type="email"
-                                    placeholder="Email Address"
+                                    placeholder="Guardian Email Address"
                                     value={customerEmail}
                                     onChange={(e) => setCustomerEmail(e.target.value)}
                                   />
                                   <Input
                                     type="tel"
-                                    placeholder="Phone (e.g., +254712345678)"
+                                    placeholder="Guardian Phone (e.g., +254712345678)"
                                     value={customerPhone}
                                     onChange={(e) => setCustomerPhone(e.target.value)}
                                   />
                                 </div>
                               ) : (
                                 <div className="space-y-1 text-sm mb-3">
-                                  <p><strong>Name:</strong> {sale.customer_name || <span className="text-gray-500 italic">Not provided</span>}</p>
-                                  <p><strong>Email:</strong> {sale.customer_email || <span className="text-gray-500 italic">Not provided</span>}</p>
-                                  <p><strong>Phone:</strong> {sale.customer_phone || <span className="text-gray-500 italic">Not provided</span>}</p>
+                                  <p><strong>Student:</strong> {sale.customer_name || <span className="text-gray-500 italic">Not provided</span>}</p>
+                                  <p><strong>Guardian Email:</strong> {sale.customer_email || <span className="text-gray-500 italic">Not provided</span>}</p>
+                                  <p><strong>Guardian Phone:</strong> {sale.customer_phone || <span className="text-gray-500 italic">Not provided</span>}</p>
                                 </div>
                               )}
                               
@@ -542,7 +542,7 @@ export function SalesHistory() {
       <div className="lg:hidden space-y-4">
         <div className="flex items-center justify-between px-1">
           <h2 className="text-lg font-semibold text-gray-900">
-            Sales Transactions ({sales.length})
+            Payment Transactions ({sales.length})
           </h2>
         </div>
         <p className="text-sm text-gray-600 px-1">
@@ -556,7 +556,7 @@ export function SalesHistory() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     <h3 className="font-semibold text-gray-900">
-                      {sale.customer_name || 'Walk-in Customer'}
+                      {sale.customer_name || 'Generic Student'}
                     </h3>
                     <Badge variant={sale.status === 'completed' ? 'success' : 'warning'}>
                       {sale.status.toUpperCase()}

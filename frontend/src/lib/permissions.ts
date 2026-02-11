@@ -18,11 +18,12 @@ export enum Permission {
 
 /**
  * Role Types:
- * - parent_org_admin: Organization owner (tenant creator) with full access
- * - branch_admin: Branch manager with branch-scoped access
- * - staff: Limited access employee (POS and own sales only)
+ * - parent_org_admin: School administrator with full access
+ * - branch_admin: Campus manager with campus-scoped access
+ * - staff: Teacher or office staff (Fee collection and academic records only)
+ * - superadmin: Platform-wide admin with full access to everything
  */
-export type RoleType = 'parent_org_admin' | 'branch_admin' | 'staff';
+export type RoleType = 'parent_org_admin' | 'branch_admin' | 'staff' | 'superadmin';
 
 /**
  * Role-Permission Mapping
@@ -31,6 +32,7 @@ export type RoleType = 'parent_org_admin' | 'branch_admin' | 'staff';
  * This should match the backend ROLE_PERMISSIONS mapping in auth.py
  */
 const ROLE_PERMISSIONS: Record<RoleType, Permission[]> = {
+  superadmin: Object.values(Permission), // Full access
   parent_org_admin: [
     Permission.VIEW_DASHBOARD,
     Permission.VIEW_REPORTS,

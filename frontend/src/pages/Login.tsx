@@ -48,7 +48,7 @@ export function Login() {
       await selectTenant(tenantId);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Failed to select business');
+      setError(err.message || 'Failed to select school');
     } finally {
       setLoading(false);
     }
@@ -60,33 +60,30 @@ export function Login() {
         <CardHeader className="space-y-3 flex flex-col items-center text-center pb-6">
           <img 
             src="/android-chrome-192x192.png" 
-            alt="mBiz Logo" 
+            alt="EduKE Logo" 
             className="w-16 h-16 md:w-20 md:h-20 rounded-2xl mb-2 shadow-lg object-contain"
           />
           <div className="space-y-2">
             <CardTitle className="text-3xl md:text-4xl tracking-wide">
-              <span className="font-light bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent drop-shadow-sm">
-                m
-              </span>
-              <span className="font-bold bg-gradient-to-r from-blue-600 to-purple-700 bg-clip-text text-transparent drop-shadow-md">
-                Biz
+              <span className="font-bold bg-gradient-to-r from-primary-600 to-primary-700 bg-clip-text text-transparent drop-shadow-md">
+                EduKE
               </span>
             </CardTitle>
             <p className="text-sm md:text-base text-gray-600 font-medium">
-              Smart Business Management Made Simple
+              School Management Made Simple
             </p>
             <div className="flex items-center justify-center gap-4 text-xs text-gray-500 pt-1">
               <span className="flex items-center gap-1">
-                <span className="text-primary-600">✓</span> Inventory
+                <span className="text-primary-600">✓</span> Students
               </span>
               <span className="flex items-center gap-1">
-                <span className="text-primary-600">✓</span> Sales
+                <span className="text-primary-600">✓</span> Fees
               </span>
               <span className="flex items-center gap-1">
-                <span className="text-primary-600">✓</span> Expenses
+                <span className="text-primary-600">✓</span> Courses
               </span>
               <span className="flex items-center gap-1">
-                <span className="text-primary-600">✓</span> Analytics & More
+                <span className="text-primary-600">✓</span> Reports
               </span>
             </div>
           </div>
@@ -173,7 +170,7 @@ export function Login() {
 
               {/* Sign Up Link */}
               <div className="text-center text-sm text-gray-600">
-                Don't have a business account?{' '}
+                Don't have a school account?{' '}
                 <Link
                   to="/register"
                   className="text-primary-600 hover:text-primary-700 font-medium underline"
@@ -185,8 +182,8 @@ export function Login() {
           ) : (
             <div className="space-y-5">
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-700 mb-1">Select Your Business</p>
-                <p className="text-xs text-gray-500">Choose which business you want to access</p>
+                <p className="text-sm font-medium text-gray-700 mb-1">Select Your School</p>
+                <p className="text-xs text-gray-500">Choose which school you want to access</p>
               </div>
 
               {error && (
@@ -245,7 +242,7 @@ export function Login() {
       {/* Footer */}
       <div className="absolute bottom-4 left-0 right-0 text-center">
         <p className="text-sm text-gray-600">
-          © 2026 StatBricks.
+          © 2026 EduKE School Management.
         </p>
       </div>
     </div>

@@ -6,7 +6,7 @@ import { MobileNav } from '@/components/MobileNav';
 import { BusinessLogo } from '@/components/BusinessLogo';
 import { TenantSwitcher } from '@/components/TenantSwitcher';
 import { RoleBadge } from '@/components/RoleBadge';
-import { LayoutDashboard, ShoppingCart, Package, LogOut, Store, Settings, FileText, MapPin, ChevronLeft, ChevronRight, UserCircle, MinusCircle } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, LogOut, Store, Settings, FileText, MapPin, ChevronLeft, ChevronRight, UserCircle, MinusCircle, BookOpen } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/lib/permissions';
 
@@ -42,11 +42,12 @@ export function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permissions: [Permission.VIEW_DASHBOARD] },
-    { path: '/pos', label: 'Point of Sale', icon: ShoppingCart, permissions: [Permission.MANAGE_POS] },
-    { path: '/customers', label: 'Customers', icon: UserCircle, permissions: [Permission.MANAGE_POS] },
-    { path: '/inventory', label: 'Inventory', icon: Package, permissions: [Permission.MANAGE_INVENTORY] },
+    { path: '/pos', label: 'Fee Collection', icon: ShoppingCart, permissions: [Permission.MANAGE_POS] },
+    { path: '/customers', label: 'Students', icon: UserCircle, permissions: [Permission.MANAGE_POS] },
+    { path: '/gradebook', label: 'Gradebook', icon: BookOpen, permissions: [Permission.MANAGE_POS] },
+    { path: '/inventory', label: 'Courses & Fees', icon: Package, permissions: [Permission.MANAGE_INVENTORY] },
     { path: '/expenses', label: 'Expenses', icon: MinusCircle, permissions: [Permission.VIEW_REPORTS] },
-    { path: '/reports', label: 'Reports', icon: FileText, permissions: [Permission.VIEW_REPORTS] },
+    { path: '/reports', label: 'Academic Reports', icon: FileText, permissions: [Permission.VIEW_REPORTS] },
     { path: '/settings', label: 'Settings', icon: Settings, permissions: [Permission.MANAGE_SETTINGS, Permission.VIEW_PRINTER_SETTINGS] },
   ].filter(item => item.permissions.some(p => permissions.hasPermission(p)));
 

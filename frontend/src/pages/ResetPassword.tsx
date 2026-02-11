@@ -76,7 +76,7 @@ export default function ResetPassword() {
           <div className="text-center">
             <Link
               to="/forgot-password"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
+              className="font-medium text-primary-600 hover:text-primary-700"
             >
               Request a new reset link
             </Link>
@@ -235,7 +235,7 @@ export default function ResetPassword() {
         <div className="text-center">
           <Link
             to="/login"
-            className="font-medium text-indigo-600 hover:text-indigo-500"
+            className="font-medium text-primary-600 hover:text-primary-700"
           >
             Back to login
           </Link>

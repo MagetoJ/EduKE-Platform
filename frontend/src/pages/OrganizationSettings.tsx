@@ -48,8 +48,8 @@ export default function OrganizationSettings() {
       setBranches(branchesData);
       setOrgUsers(usersData);
     } catch (err: any) {
-      console.error('Failed to load organization data:', err);
-      setError(err.message || 'Failed to load organization data');
+      console.error('Failed to load school system data:', err);
+      setError(err.message || 'Failed to load school system data');
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +67,7 @@ export default function OrganizationSettings() {
       await api.deleteBranch(token, branchId);
       setDeleteModalOpen(false);
       setBranchToDelete(null);
-      setSuccessMessage(`Branch "${branchToDelete.name}" deleted successfully`);
+      setSuccessMessage(`Campus "${branchToDelete.name}" deleted successfully`);
       await loadData();
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
@@ -79,7 +79,7 @@ export default function OrganizationSettings() {
   const handleRemoveOrgUser = async (userId: number, userName: string) => {
     if (!token) return;
 
-    if (!confirm(`Are you sure you want to remove "${userName}" from the organization?`)) {
+    if (!confirm(`Are you sure you want to remove "${userName}" from the school system?`)) {
       return;
     }
 
@@ -95,14 +95,14 @@ export default function OrganizationSettings() {
 
   const handleBranchCreated = () => {
     setShowCreateBranchModal(false);
-    setSuccessMessage('Branch created successfully!');
+    setSuccessMessage('Campus created successfully!');
     loadData();
     setTimeout(() => setSuccessMessage(null), 5000);
   };
 
   const handleSetupSuccess = () => {
     setShowSetupModal(false);
-    setSuccessMessage('Organization setup complete! Refreshing...');
+    setSuccessMessage('School system setup complete! Refreshing...');
     setTimeout(() => {
       window.location.reload();
     }, 1500);
@@ -135,11 +135,11 @@ export default function OrganizationSettings() {
               </div>
 
               <h3 className="text-2xl font-bold text-gray-900 mb-3">
-                Set Up Your Organization
+                Set Up Your School System
               </h3>
 
               <p className="text-gray-600 mb-6 text-lg">
-                Unlock powerful multi-branch management features to scale your business across multiple locations.
+                Unlock powerful multi-campus management features to scale your school across multiple locations.
               </p>
 
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 mb-8">
@@ -150,8 +150,8 @@ export default function OrganizationSettings() {
                       <Building2 className="h-4 w-4 text-white" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900 text-sm">Multiple Branches</p>
-                      <p className="text-sm text-gray-600">Create and manage locations in different areas</p>
+                      <p className="font-medium text-gray-900 text-sm">Multiple Campuses</p>
+                      <p className="text-sm text-gray-600">Create and manage campuses in different areas</p>
                     </div>
                   </div>
 
@@ -160,8 +160,8 @@ export default function OrganizationSettings() {
                       <Package className="h-4 w-4 text-white" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900 text-sm">Shared Catalog</p>
-                      <p className="text-sm text-gray-600">Define products once, use everywhere</p>
+                      <p className="font-medium text-gray-900 text-sm">Shared Course Catalog</p>
+                      <p className="text-sm text-gray-600">Define courses once, use everywhere</p>
                     </div>
                   </div>
 
@@ -170,8 +170,8 @@ export default function OrganizationSettings() {
                       <CheckCircle className="h-4 w-4 text-white" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900 text-sm">Per-Branch Inventory</p>
-                      <p className="text-sm text-gray-600">Track stock separately for each location</p>
+                      <p className="font-medium text-gray-900 text-sm">Per-Campus Enrollment</p>
+                      <p className="text-sm text-gray-600">Track students separately for each location</p>
                     </div>
                   </div>
 
@@ -181,7 +181,7 @@ export default function OrganizationSettings() {
                     </div>
                     <div>
                       <p className="font-medium text-gray-900 text-sm">Unified Dashboard</p>
-                      <p className="text-sm text-gray-600">View analytics across all branches</p>
+                      <p className="text-sm text-gray-600">View analytics across all campuses</p>
                     </div>
                   </div>
                 </div>
@@ -192,7 +192,7 @@ export default function OrganizationSettings() {
                   <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                   <div className="text-sm text-amber-800">
                     <p className="font-medium mb-1">Pricing Information</p>
-                    <p>Your first branch is included. Additional branches require a subscription upgrade. You can add branches as your business grows.</p>
+                    <p>Your first campus is included. Additional campuses require a subscription upgrade. You can add campuses as your school grows.</p>
                   </div>
                 </div>
               </div>
@@ -202,7 +202,7 @@ export default function OrganizationSettings() {
                 className="inline-flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-base transition-colors shadow-lg shadow-blue-600/30"
               >
                 <Rocket className="h-5 w-5" />
-                Set Up Organization Now
+                Set Up School System Now
               </button>
 
               <p className="text-sm text-gray-500 mt-4">
@@ -277,7 +277,7 @@ export default function OrganizationSettings() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-gray-700" />
-              <h3 className="text-lg font-semibold text-gray-900">Branches</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Campuses</h3>
             </div>
             <button
               onClick={() => setShowCreateBranchModal(true)}
@@ -285,14 +285,14 @@ export default function OrganizationSettings() {
               className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
               <Plus className="h-4 w-4" />
-              Add Branch
+              Add Campus
             </button>
           </div>
 
           {branches.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <Building2 className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-              <p>No branches yet</p>
+              <p>No campuses yet</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -306,7 +306,7 @@ export default function OrganizationSettings() {
                     <div>
                       <h4 className="font-medium text-gray-900">{branch.name}</h4>
                       <p className="text-sm text-gray-600">
-                        {branch.subdomain}.statbricks.com
+                        {branch.subdomain}.eduke.com
                         {branch.id === tenant?.id && (
                           <span className="ml-2 text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
                             Current
@@ -329,7 +329,7 @@ export default function OrganizationSettings() {
                       <button
                         onClick={() => handleDeleteClick(branch)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
-                        title="Delete branch"
+                        title="Delete campus"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -342,7 +342,7 @@ export default function OrganizationSettings() {
 
           {branches.length >= organization.max_branches && (
             <p className="mt-4 text-sm text-amber-600 bg-amber-50 p-3 rounded">
-              You've reached the maximum number of branches ({organization.max_branches}) for your {organization.subscription_plan} plan.
+              You've reached the maximum number of campuses ({organization.max_branches}) for your {organization.subscription_plan} plan.
             </p>
           )}
         </CardContent>
@@ -353,17 +353,17 @@ export default function OrganizationSettings() {
         <CardContent className="py-6">
           <div className="flex items-center gap-2 mb-4">
             <Package className="h-5 w-5 text-gray-700" />
-            <h3 className="text-lg font-semibold text-gray-900">Product Catalog</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Course Catalog</h3>
           </div>
           <p className="text-gray-600 mb-4">
-            Manage the shared product catalog that all branches use. Products are defined at the organization level, and each branch tracks its own stock quantities.
+            Manage the shared course catalog that all campuses use. Courses are defined at the school system level, and each campus tracks its own enrollment.
           </p>
           <a
             href="/organization/products"
             className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <Package className="h-4 w-4" />
-            Manage Organization Products
+            Manage Course Catalog
             <ExternalLink className="h-4 w-4" />
           </a>
         </CardContent>
@@ -375,7 +375,7 @@ export default function OrganizationSettings() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5 text-gray-700" />
-              <h3 className="text-lg font-semibold text-gray-900">Organization Users</h3>
+              <h3 className="text-lg font-semibold text-gray-900">School System Users</h3>
             </div>
           </div>
 

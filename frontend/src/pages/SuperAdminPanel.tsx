@@ -791,6 +791,38 @@ export default function SuperAdminPanel() {
     }
   };
 
+  const handleExtendSubscription = async (tenantId: number) => {
+    const daysStr = prompt('Enter number of days to extend subscription:', '30');
+    if (!daysStr) return;
+    
+    const days = parseInt(daysStr);
+    if (isNaN(days) || days <= 0) {
+      toast.error('Invalid number of days');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/platform/tenants/${tenantId}/extend-subscription?days=${days}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to extend subscription');
+      }
+      
+      const data = await response.json();
+      toast.success(data.message || `Subscription extended by ${days} days`);
+      fetchOverviewData();
+    } catch (err: any) {
+      toast.error('Error: ' + err.message);
+    }
+  };
+
   // TODO: Implement subscription extension UI
   // const handleExtendSubscription = async (e: React.FormEvent) => {
   //   e.preventDefault();
@@ -1156,6 +1188,15 @@ export default function SuperAdminPanel() {
                                 title="Impersonate tenant admin"
                               >
                                 <Eye className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleExtendSubscription(tenant.id)}
+                                title="Extend subscription"
+                                className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                              >
+                                <Plus className="w-4 h-4" />
                               </Button>
                               <Button
                                 size="sm"

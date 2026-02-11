@@ -18,7 +18,8 @@ from models import (
     Organization, OrganizationProduct, OrganizationCategory, BranchStock,
     Permission,  # NEW: RBAC Permission enum
     Customer, CreditTransaction, CreditTransactionStatus, Payment, ReminderLog,
-    Expense
+    Expense,
+    GradeLevel, AcademicTerm, Subject, Student, Assessment, GradeRecord, AssessmentType
 )
 from schemas import (
     UserResponse, UserWithRoleResponse, Token, LoginRequest,
@@ -37,7 +38,13 @@ from schemas import (
     CustomerCreate, CustomerUpdate, CustomerResponse,
     CreditTransactionResponse, PaymentCreate, PaymentResponse,
     ReminderLogResponse,
-    ExpenseCreate, ExpenseUpdate, ExpenseResponse
+    ExpenseCreate, ExpenseUpdate, ExpenseResponse,
+    GradeLevelCreate, GradeLevelUpdate, GradeLevelResponse,
+    AcademicTermCreate, AcademicTermUpdate, AcademicTermResponse,
+    SubjectCreate, SubjectResponse, SubjectUpdate,
+    StudentCreate, StudentUpdate, StudentResponse,
+    AssessmentCreate, AssessmentUpdate, AssessmentResponse,
+    GradeRecordCreate, GradeRecordUpdate, GradeRecordResponse
 )
 from subscription_middleware import check_branch_subscription_active
 from auth import (
@@ -510,7 +517,8 @@ async def login(
     )
     membership = result.first()
 
-    if not membership:
+    # Allow platform-wide super admins to bypass membership check
+    if not membership and not user.is_super_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User does not have access to this organization"
@@ -525,20 +533,22 @@ async def login(
     access_token = create_access_token(
         data={"sub": user.username},
         tenant_id=login_tenant_id,
-        branch_id=membership.branch_id,  # NEW: Include branch assignment from tenant_users
+        branch_id=membership.branch_id if membership else None,  # NEW: Include branch assignment from tenant_users
+        is_super_admin=user.is_super_admin,
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
 
-    # Update last_login_at timestamp
-    await db.execute(
-        tenant_users.update()
-        .where(
-            tenant_users.c.tenant_id == tenant.id,
-            tenant_users.c.user_id == user.id
+    # Update last_login_at timestamp if membership exists
+    if membership:
+        await db.execute(
+            tenant_users.update()
+            .where(
+                tenant_users.c.tenant_id == tenant.id,
+                tenant_users.c.user_id == user.id
+            )
+            .values(last_login_at=datetime.utcnow())
         )
-        .values(last_login_at=datetime.utcnow())
-    )
-    await db.commit()
+        await db.commit()
 
     return {
         "access_token": access_token,
@@ -559,8 +569,8 @@ async def login(
             "full_name": user.full_name,
             "is_active": user.is_active,
             "created_at": user.created_at,
-            "role": membership.role.value,
-            "branch_id": membership.branch_id  # For frontend to detect branch assignment
+            "role": membership.role.value if membership else UserRole.SUPER_ADMIN,
+            "branch_id": membership.branch_id if membership else None  # For frontend to detect branch assignment
         }
     }
 
@@ -734,7 +744,7 @@ async def switch_tenant(
             elif parent_membership.branch_id == tenant.id:
                 membership = parent_membership
 
-    if not membership:
+    if not membership and not current_user.is_super_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User does not have access to this organization"
@@ -744,7 +754,8 @@ async def switch_tenant(
     access_token = create_access_token(
         data={"sub": current_user.username},
         tenant_id=tenant.id,
-        branch_id=membership.branch_id,  # NEW: Include branch assignment when switching
+        branch_id=membership.branch_id if membership else None,  # NEW: Include branch assignment when switching
+        is_super_admin=current_user.is_super_admin,
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
 
@@ -766,10 +777,10 @@ async def switch_tenant(
             "full_name": current_user.full_name,
             "is_active": current_user.is_active,
             "created_at": current_user.created_at,
-            "role": membership.role.value,
-            "branch_id": membership.branch_id,  # NULL for parent admins
-            "tenant_is_active": membership.is_active,
-            "joined_at": membership.joined_at
+            "role": membership.role.value if membership else UserRole.SUPER_ADMIN,
+            "branch_id": membership.branch_id if membership else None,  # NULL for parent admins
+            "tenant_is_active": membership.is_active if membership else True,
+            "joined_at": membership.joined_at if membership else current_user.created_at
         }
     }
 
@@ -1125,7 +1136,11 @@ async def get_products(
                 )
             )
             .where(Product.tenant_id == main_tenant_id)
-            .options(selectinload(Product.category_rel))
+            .options(
+                selectinload(Product.category_rel),
+                selectinload(Product.instructor),
+                selectinload(Product.academic_term)
+            )
         )
 
         if category_id:
@@ -1159,6 +1174,10 @@ async def get_products(
                 "created_at": product.created_at,
                 "updated_at": product.updated_at,
                 "category_rel": product.category_rel,
+                "instructor_id": product.instructor_id,
+                "instructor_name": product.instructor.full_name if product.instructor else None,
+                "academic_term_id": product.academic_term_id,
+                "academic_term_name": product.academic_term.name if product.academic_term else None,
                 "read_only": is_read_only  # NEW: Flag for cross-branch viewing
             }
             products.append(product_dict)
@@ -1229,7 +1248,11 @@ async def get_products(
                         )
                     )
                     .where(Product.tenant_id == current_tenant.id)
-                    .options(selectinload(Product.category_rel))
+                    .options(
+                        selectinload(Product.category_rel),
+                        selectinload(Product.instructor),
+                        selectinload(Product.academic_term)
+                    )
                 )
                 
                 if category_id:
@@ -1269,6 +1292,10 @@ async def get_products(
                         "created_at": product.created_at,
                         "updated_at": product.updated_at,
                         "category_rel": product.category_rel,
+                        "instructor_id": product.instructor_id,
+                        "instructor_name": product.instructor.full_name if product.instructor else None,
+                        "academic_term_id": product.academic_term_id,
+                        "academic_term_name": product.academic_term.name if product.academic_term else None,
                         "read_only": is_read_only,
                         "branch_id": view_target_id,
                         "branch_name": target_branch.name
@@ -1279,7 +1306,9 @@ async def get_products(
 
         # Default: Query own products (Parent Inventory) - Only for Admins/Unassigned
         query = select(Product).where(Product.tenant_id == current_tenant.id).options(
-            selectinload(Product.category_rel)
+            selectinload(Product.category_rel),
+            selectinload(Product.instructor),
+            selectinload(Product.academic_term)
         )
 
         if category_id:
@@ -1293,7 +1322,30 @@ async def get_products(
         products = []
         for product in result.scalars().all():
             product_dict = {
-                **product.__dict__,
+                "id": product.id,
+                "tenant_id": product.tenant_id,
+                "name": product.name,
+                "sku": product.sku,
+                "barcode": product.barcode,
+                "description": product.description,
+                "base_cost": product.base_cost,
+                "selling_price": product.selling_price,
+                "target_margin": product.target_margin,
+                "minimum_margin": product.minimum_margin,
+                "quantity": product.quantity,
+                "category_id": product.category_id,
+                "unit": product.unit,
+                "image_url": product.image_url,
+                "reorder_level": product.reorder_level,
+                "is_available": product.is_available,
+                "is_service": product.is_service,
+                "created_at": product.created_at,
+                "updated_at": product.updated_at,
+                "category_rel": product.category_rel,
+                "instructor_id": product.instructor_id,
+                "instructor_name": product.instructor.full_name if product.instructor else None,
+                "academic_term_id": product.academic_term_id,
+                "academic_term_name": product.academic_term.name if product.academic_term else None,
                 "read_only": False # Admins can edit parent inventory
             }
             products.append(product_dict)
@@ -1473,6 +1525,8 @@ async def create_product(
         reorder_level=10,  # Default value, will be auto-calculated later
         is_available=product_data.is_available,
         is_service=product_data.is_service,
+        instructor_id=product_data.instructor_id,
+        academic_term_id=product_data.academic_term_id,
         target_margin=target_margin,  # Inherited from category or system default
         minimum_margin=minimum_margin,  # Inherited from category or system default
         lead_time_days=7  # Default lead time for reorder calculation
@@ -1517,7 +1571,11 @@ async def create_product(
     result = await db.execute(
         select(Product)
         .where(Product.id == new_product.id)
-        .options(selectinload(Product.category_rel))
+        .options(
+            selectinload(Product.category_rel),
+            selectinload(Product.instructor),
+            selectinload(Product.academic_term)
+        )
     )
     product_with_category = result.scalar_one()
 
@@ -1600,7 +1658,11 @@ async def update_product(
     result = await db.execute(
         select(Product)
         .where(Product.id == product_id)
-        .options(selectinload(Product.category_rel))
+        .options(
+            selectinload(Product.category_rel),
+            selectinload(Product.instructor),
+            selectinload(Product.academic_term)
+        )
     )
     product_with_category = result.scalar_one()
 
@@ -1709,7 +1771,11 @@ async def upload_product_image(
     result = await db.execute(
         select(Product)
         .where(Product.id == product_id)
-        .options(selectinload(Product.category_rel))
+        .options(
+            selectinload(Product.category_rel),
+            selectinload(Product.instructor),
+            selectinload(Product.academic_term)
+        )
     )
     product_with_category = result.scalar_one()
 
@@ -1766,7 +1832,11 @@ async def delete_product_image(
     result = await db.execute(
         select(Product)
         .where(Product.id == product_id)
-        .options(selectinload(Product.category_rel))
+        .options(
+            selectinload(Product.category_rel),
+            selectinload(Product.instructor),
+            selectinload(Product.academic_term)
+        )
     )
     product_with_category = result.scalar_one()
 
@@ -2124,7 +2194,11 @@ async def get_branch_stock(
             )
         )
         .where(Product.tenant_id == main_tenant_id)
-        .options(selectinload(Product.category_rel))
+        .options(
+            selectinload(Product.category_rel),
+            selectinload(Product.instructor),
+            selectinload(Product.academic_term)
+        )
         .order_by(Product.name)
     )
 
@@ -2442,6 +2516,7 @@ async def create_sale(
         user_id=current_user.id,
         branch_id=sale_branch_id,  # NEW: Track which branch created this sale
         customer_id=sale_data.customer_id if sale_data.payment_method == "Credit" else None,
+        student_id=sale_data.student_id,  # LINK TO STUDENT
         customer_name=getattr(sale_data, 'customer_name', None),
         customer_email=getattr(sale_data, 'customer_email', None),
         customer_phone=getattr(sale_data, 'customer_phone', None),
@@ -2671,6 +2746,8 @@ async def update_sale_customer(
         sale.customer_email = customer_data.customer_email
     if customer_data.customer_phone is not None:
         sale.customer_phone = customer_data.customer_phone
+    if customer_data.student_id is not None:
+        sale.student_id = customer_data.student_id
     
     await db.commit()
     await db.refresh(sale)
@@ -3057,6 +3134,12 @@ async def get_dashboard_stats(
     total_revenue = float(total_revenue or 0)
     total_sales = int(total_sales or 0)
 
+    # Total customers (rebranded as Students)
+    result = await db.execute(
+        select(func.count(Customer.id)).where(Customer.tenant_id == current_tenant.id)
+    )
+    total_customers = result.scalar() or 0
+
     # Total products and low stock (not filtered by user)
     result = await db.execute(
         select(func.count(Product.id)).where(Product.tenant_id == current_tenant.id)
@@ -3113,14 +3196,44 @@ async def get_dashboard_stats(
     today_revenue = float(today_revenue or 0)
     today_sales = int(today_sales or 0)
 
+    # --- School Specific Stats ---
+    # Total students
+    result = await db.execute(
+        select(func.count(Student.id)).where(Student.tenant_id == current_tenant.id)
+    )
+    total_students = result.scalar() or 0
+    
+    # Total classes (GradeLevels)
+    result = await db.execute(
+        select(func.count(GradeLevel.id)).where(GradeLevel.tenant_id == current_tenant.id)
+    )
+    total_classes = result.scalar() or 0
+    
+    # Total Subjects
+    result = await db.execute(
+        select(func.count(Subject.id)).where(Subject.tenant_id == current_tenant.id)
+    )
+    total_subjects = result.scalar() or 0
+    
+    # Average Grade (Marks)
+    result = await db.execute(
+        select(func.avg(GradeRecord.marks_obtained)).where(GradeRecord.tenant_id == current_tenant.id)
+    )
+    avg_grade = float(result.scalar() or 0)
+
     return {
         "total_revenue": total_revenue,
         "total_sales": total_sales,
         "total_products": total_products,
+        "total_customers": total_customers,
         "low_stock_items": low_stock_items,
         "total_stock_value": total_stock_value,
         "today_revenue": today_revenue,
-        "today_sales": today_sales
+        "today_sales": today_sales,
+        "total_students": total_students,
+        "total_classes": total_classes,
+        "total_subjects": total_subjects,
+        "avg_grade": avg_grade
     }
 
 
@@ -3284,7 +3397,11 @@ async def get_financial_report(
             Product.is_service == False,
             Product.quantity <= Product.reorder_level
         )
-        .options(selectinload(Product.category_rel))
+        .options(
+            selectinload(Product.category_rel),
+            selectinload(Product.instructor),
+            selectinload(Product.academic_term)
+        )
         .limit(10)
     )
     low_stock_products = result.scalars().all()
@@ -3317,7 +3434,11 @@ async def get_financial_report(
             Product.is_available == True,  # Active products only
             ~Product.id.in_(sold_product_ids_subquery)  # NOT sold in period
         )
-        .options(selectinload(Product.category_rel))  # Eager load category
+        .options(
+            selectinload(Product.category_rel),
+            selectinload(Product.instructor),
+            selectinload(Product.academic_term)
+        )  # Eager load category
         .order_by(Product.quantity.desc())  # Show highest inventory first
         .limit(50)  # Limit for UI display
     )
@@ -4096,6 +4217,222 @@ async def get_expense_types(
     result = await db.execute(query)
     rows = result.all()
     return [{"type": row.type} for row in rows]
+
+
+# ==================== SCHOOL MANAGEMENT API ====================
+
+# --- Grade Levels ---
+
+@app.get("/grade-levels", response_model=List[GradeLevelResponse])
+async def get_grade_levels(
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """List all grade levels/classes in the school"""
+    result = await db.execute(
+        select(GradeLevel).where(GradeLevel.tenant_id == current_tenant.id).order_by(GradeLevel.level)
+    )
+    grade_levels = result.scalars().all()
+    
+    # Enrich with teacher names
+    responses = []
+    for gl in grade_levels:
+        resp = GradeLevelResponse.model_validate(gl)
+        if gl.teacher_id:
+            teacher_result = await db.execute(select(User).where(User.id == gl.teacher_id))
+            teacher = teacher_result.scalar_one_or_none()
+            if teacher:
+                resp.teacher_name = teacher.full_name
+        responses.append(resp)
+        
+    return responses
+
+@app.post("/grade-levels", response_model=GradeLevelResponse)
+async def create_grade_level(
+    grade_data: GradeLevelCreate,
+    current_tenant: Tenant = Depends(require_admin_role),
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a new grade level/class"""
+    new_gl = GradeLevel(**grade_data.model_dump(), tenant_id=current_tenant.id)
+    db.add(new_gl)
+    await db.commit()
+    await db.refresh(new_gl)
+    return GradeLevelResponse.model_validate(new_gl)
+
+
+# --- Students ---
+
+@app.get("/students", response_model=List[StudentResponse])
+async def get_students(
+    grade_level_id: Optional[int] = Query(None),
+    is_active: Optional[bool] = Query(None),
+    search: Optional[str] = Query(None),
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """List students with optional filters"""
+    query = select(Student).where(Student.tenant_id == current_tenant.id)
+    
+    if grade_level_id:
+        query = query.where(Student.grade_level_id == grade_level_id)
+    if is_active is not None:
+        query = query.where(Student.is_active == is_active)
+    if search:
+        search_filter = f"%{search}%"
+        query = query.where(
+            or_(
+                Student.first_name.ilike(search_filter),
+                Student.last_name.ilike(search_filter),
+                Student.admission_number.ilike(search_filter)
+            )
+        )
+        
+    result = await db.execute(query.order_by(Student.last_name, Student.first_name))
+    students = result.scalars().all()
+    
+    responses = []
+    for s in students:
+        resp = StudentResponse.model_validate(s)
+        if s.grade_level_id:
+            gl_result = await db.execute(select(GradeLevel).where(GradeLevel.id == s.grade_level_id))
+            gl = gl_result.scalar_one_or_none()
+            if gl:
+                resp.grade_level_name = gl.name
+        responses.append(resp)
+        
+    return responses
+
+@app.post("/students", response_model=StudentResponse)
+async def create_student(
+    student_data: StudentCreate,
+    current_tenant: Tenant = Depends(require_admin_role),
+    db: AsyncSession = Depends(get_db)
+):
+    """Enroll a new student"""
+    # Check if admission number already exists in this tenant
+    existing = await db.execute(
+        select(Student).where(
+            Student.tenant_id == current_tenant.id,
+            Student.admission_number == student_data.admission_number
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Admission number already exists")
+        
+    new_student = Student(**student_data.model_dump(), tenant_id=current_tenant.id)
+    db.add(new_student)
+    await db.commit()
+    await db.refresh(new_student)
+    return StudentResponse.model_validate(new_student)
+
+
+# --- Subjects ---
+
+@app.get("/subjects", response_model=List[SubjectResponse])
+async def get_subjects(
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """List all subjects offered by the school"""
+    result = await db.execute(
+        select(Subject).where(Subject.tenant_id == current_tenant.id).order_by(Subject.name)
+    )
+    return result.scalars().all()
+
+@app.post("/subjects", response_model=SubjectResponse)
+async def create_subject(
+    subject_data: SubjectCreate,
+    current_tenant: Tenant = Depends(require_admin_role),
+    db: AsyncSession = Depends(get_db)
+):
+    """Add a new subject"""
+    # Check name uniqueness
+    existing = await db.execute(
+        select(Subject).where(
+            Subject.tenant_id == current_tenant.id,
+            Subject.name == subject_data.name
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Subject name already exists")
+        
+    new_subject = Subject(**subject_data.model_dump(), tenant_id=current_tenant.id)
+    db.add(new_subject)
+    await db.commit()
+    await db.refresh(new_subject)
+    return new_subject
+
+
+# --- Gradebook ---
+
+@app.get("/assessments", response_model=List[AssessmentResponse])
+async def get_assessments(
+    term_id: Optional[int] = Query(None),
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """List assessments/exams"""
+    query = select(Assessment).where(Assessment.tenant_id == current_tenant.id)
+    if term_id:
+        query = query.where(Assessment.term_id == term_id)
+        
+    result = await db.execute(query.order_by(Assessment.date.desc()))
+    assessments = result.scalars().all()
+    
+    responses = []
+    for a in assessments:
+        resp = AssessmentResponse.model_validate(a)
+        term_result = await db.execute(select(AcademicTerm).where(AcademicTerm.id == a.term_id))
+        term = term_result.scalar_one_or_none()
+        if term:
+            resp.term_name = term.name
+        responses.append(resp)
+        
+    return responses
+
+@app.post("/grade-records", response_model=GradeRecordResponse)
+async def enter_grade(
+    grade_data: GradeRecordCreate,
+    current_tenant: Tenant = Depends(get_current_active_user), # Any active user (teacher)
+    db: AsyncSession = Depends(get_db)
+):
+    """Enter or update a student's mark for an assessment"""
+    # Check if record exists
+    result = await db.execute(
+        select(GradeRecord).where(
+            GradeRecord.student_id == grade_data.student_id,
+            GradeRecord.assessment_id == grade_data.assessment_id,
+            GradeRecord.subject_id == grade_data.subject_id
+        )
+    )
+    existing = result.scalar_one_or_none()
+    
+    if existing:
+        existing.marks_obtained = grade_data.marks_obtained
+        existing.remarks = grade_data.remarks
+        existing.updated_at = datetime.utcnow()
+        grade_record = existing
+    else:
+        grade_record = GradeRecord(**grade_data.model_dump(), tenant_id=current_tenant.id)
+        db.add(grade_record)
+        
+    await db.commit()
+    await db.refresh(grade_record)
+    
+    # Enrich response
+    resp = GradeRecordResponse.model_validate(grade_record)
+    
+    student = await db.get(Student, grade_record.student_id)
+    if student: resp.student_name = f"{student.first_name} {student.last_name}"
+    
+    subject = await db.get(Subject, grade_record.subject_id)
+    if subject: resp.subject_name = subject.name
+    
+    assessment = await db.get(Assessment, grade_record.assessment_id)
+    if assessment: resp.assessment_name = assessment.name
+    
+    return resp
 
 
 # ==================== HEALTH CHECK ====================

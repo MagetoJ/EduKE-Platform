@@ -100,7 +100,7 @@ export function Register() {
     const errors: Record<string, string> = {};
 
     if (!businessName.trim()) {
-      errors.businessName = 'Business name is required';
+      errors.businessName = 'School name is required';
     }
 
     if (!subdomain || subdomain.length < 3) {
@@ -172,22 +172,22 @@ export function Register() {
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-accent-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Create Your Business Account</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Register Your School Account</CardTitle>
           <CardDescription className="text-center">
-            Start managing your inventory and sales in minutes
+            Start managing your courses and students in minutes
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Business Name */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700" htmlFor="businessName">Business Name *</label>
+              <label className="block text-sm font-medium text-gray-700" htmlFor="businessName">School Name *</label>
               <div className="relative">
                 <Building2 className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   id="businessName"
                   type="text"
-                  placeholder="Acme Store"
+                  placeholder="Acme Academy"
                   value={businessName}
                   onChange={handleBusinessNameChange}
                   className={`pl-10 ${validationErrors.businessName ? 'border-red-500' : ''}`}
@@ -201,13 +201,13 @@ export function Register() {
 
             {/* Subdomain */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700" htmlFor="subdomain">Business Subdomain *</label>
+              <label className="block text-sm font-medium text-gray-700" htmlFor="subdomain">School Subdomain *</label>
               <div className="relative">
                 <Globe className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   id="subdomain"
                   type="text"
-                  placeholder="acme-store"
+                  placeholder="acme-academy"
                   value={subdomain}
                   onChange={(e) => setSubdomain(e.target.value.toLowerCase())}
                   className={`pl-10 pr-10 ${
@@ -231,7 +231,7 @@ export function Register() {
               </div>
               {subdomain && (
                 <p className="text-xs text-gray-500">
-                  Your business will be accessible at: <span className="font-medium">{subdomain}.statbricks.com</span>
+                  Your school will be accessible at: <span className="font-medium">{subdomain}.eduke.com</span>
                 </p>
               )}
               {validationErrors.subdomain && (

@@ -1134,6 +1134,7 @@ async def impersonate_tenant_admin(
     access_token = create_access_token(
         data={"sub": admin_user.username},
         tenant_id=tenant.id,
+        is_super_admin=admin_user.is_super_admin,
         expires_delta=access_token_expires
     )
     

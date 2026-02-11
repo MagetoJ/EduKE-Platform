@@ -15,6 +15,7 @@ import { POS } from './pages/POS';
 import { Reports } from './pages/Reports';
 import { SalesHistory } from './pages/SalesHistory';
 import { Expenses } from './pages/Expenses';
+import { Gradebook } from './pages/Gradebook';
 import Customers from './pages/Customers';
 import OrganizationProducts from './pages/OrganizationProducts';
 import SuperAdminLogin from './pages/SuperAdminLogin';
@@ -149,6 +150,14 @@ function AppRoutes() {
           <AdminRoute>
             <Expenses />
           </AdminRoute>
+        }
+      />
+      <Route
+        path="/gradebook"
+        element={
+          <PrivateRoute>
+            <Gradebook />
+          </PrivateRoute>
         }
       />
       <Route

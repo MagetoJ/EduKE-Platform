@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, Settings, UserCircle, MinusCircle } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, Settings, UserCircle, MinusCircle, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/lib/permissions';
@@ -10,9 +10,10 @@ export function MobileNav() {
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permissions: [Permission.VIEW_DASHBOARD] },
-    { path: '/inventory', label: 'Inventory', icon: Package, permissions: [Permission.MANAGE_INVENTORY] },
-    { path: '/pos', label: 'POS', icon: ShoppingCart, permissions: [Permission.MANAGE_POS] },
-    { path: '/customers', label: 'Customers', icon: UserCircle, permissions: [Permission.MANAGE_POS] },
+    { path: '/inventory', label: 'Courses', icon: Package, permissions: [Permission.MANAGE_INVENTORY] },
+    { path: '/pos', label: 'Fees', icon: ShoppingCart, permissions: [Permission.MANAGE_POS] },
+    { path: '/customers', label: 'Students', icon: UserCircle, permissions: [Permission.MANAGE_POS] },
+    { path: '/gradebook', label: 'Gradebook', icon: BookOpen, permissions: [Permission.MANAGE_POS] },
     { path: '/expenses', label: 'Expenses', icon: MinusCircle, permissions: [Permission.VIEW_REPORTS] },
     { path: '/settings', label: 'Settings', icon: Settings, permissions: [Permission.MANAGE_SETTINGS, Permission.VIEW_PRINTER_SETTINGS] },
   ].filter(item => item.permissions.some(p => permissions.hasPermission(p)));

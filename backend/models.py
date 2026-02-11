@@ -297,6 +297,11 @@ class Product(Base):
     reorder_level = Column(Integer, default=10)
     is_available = Column(Boolean, default=True)
     is_service = Column(Boolean, default=False, nullable=False)  # NEW: Distinguish services from physical products
+    
+    # SCHOOL MANAGEMENT FIELDS
+    instructor_id = Column(Integer, ForeignKey("users.id", ondelete='SET NULL'), nullable=True)
+    academic_term_id = Column(Integer, ForeignKey("academic_terms.id", ondelete='SET NULL'), nullable=True)
+    
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -307,6 +312,8 @@ class Product(Base):
     stock_movements = relationship("StockMovement", back_populates="product")
     branch_stocks = relationship("BranchStock", back_populates="product", cascade="all, delete-orphan")
     price_history = relationship("PriceHistory", back_populates="product", cascade="all, delete-orphan")
+    instructor = relationship("User", foreign_keys=[instructor_id])
+    academic_term = relationship("AcademicTerm")
 
     # Unique constraint: SKU must be unique within a tenant
     __table_args__ = (
@@ -319,6 +326,14 @@ class Product(Base):
 
     def __repr__(self):
         return f"<Product {self.name} (Tenant: {self.tenant_id})>"
+
+    @property
+    def instructor_name(self):
+        return self.instructor.full_name if self.instructor else None
+
+    @property
+    def academic_term_name(self):
+        return self.academic_term.name if self.academic_term else None
 
 
 class PriceHistory(Base):
@@ -362,6 +377,7 @@ class Sale(Base):
     branch_id = Column(Integer, ForeignKey("tenants.id"), nullable=True, index=True)  # NEW: Track which branch created the sale
 
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True, index=True)  # Link to Customer entity
+    student_id = Column(Integer, ForeignKey("students.id"), nullable=True, index=True)  # LINK TO STUDENT
     customer_name = Column(String(100))
     customer_email = Column(String(100), nullable=True)  # Customer email for receipt delivery
     customer_phone = Column(String(20), nullable=True)  # Customer phone for WhatsApp receipt
@@ -869,3 +885,206 @@ class ReminderLog(Base):
 
     def __repr__(self):
         return f"<ReminderLog Stage:{self.reminder_stage} TXN:{self.credit_transaction_id}>"
+
+
+# ==================== SCHOOL MANAGEMENT MODELS ====================
+
+class AssessmentType(str, enum.Enum):
+    EXAM = "exam"
+    QUIZ = "quiz"
+    ASSIGNMENT = "assignment"
+    PROJECT = "project"
+    CAT = "cat"
+
+
+class GradeLevel(Base):
+    """Represents a class or level (e.g., Grade 1, Form 4A)"""
+    __tablename__ = "grade_levels"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete='CASCADE'), nullable=False, index=True)
+    
+    name = Column(String(100), nullable=False)  # e.g., "Grade 1", "Class 5"
+    level = Column(Integer, nullable=True)  # Numeric level for sorting/promotion
+    stream = Column(String(50), nullable=True)  # e.g., "Blue", "A"
+    
+    teacher_id = Column(Integer, ForeignKey("users.id", ondelete='SET NULL'), nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    tenant = relationship("Tenant")
+    class_teacher = relationship("User")
+    students = relationship("Student", back_populates="grade_level")
+
+    __table_args__ = (
+        Index('idx_grade_levels_tenant', 'tenant_id'),
+    )
+
+    def __repr__(self):
+        return f"<GradeLevel {self.name}>"
+
+
+class AcademicTerm(Base):
+    """Represents a school term or semester"""
+    __tablename__ = "academic_terms"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete='CASCADE'), nullable=False, index=True)
+    
+    name = Column(String(100), nullable=False)  # e.g., "Term 1 2024"
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    is_current = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    tenant = relationship("Tenant")
+
+    __table_args__ = (
+        Index('idx_terms_tenant', 'tenant_id'),
+        Index('idx_terms_current', 'tenant_id', 'is_current'),
+    )
+
+    def __repr__(self):
+        return f"<AcademicTerm {self.name}>"
+
+
+class Subject(Base):
+    """Represents a course or subject"""
+    __tablename__ = "subjects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete='CASCADE'), nullable=False, index=True)
+    
+    name = Column(String(100), nullable=False)
+    code = Column(String(20), nullable=True)
+    description = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    tenant = relationship("Tenant")
+
+    __table_args__ = (
+        Index('idx_subjects_tenant', 'tenant_id'),
+        UniqueConstraint('tenant_id', 'name', name='uq_tenant_subject_name'),
+    )
+
+    def __repr__(self):
+        return f"<Subject {self.name}>"
+
+
+class Student(Base):
+    """Represents a student profile"""
+    __tablename__ = "students"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete='CASCADE'), nullable=False, index=True)
+    
+    # Personal Info
+    first_name = Column(String(100), nullable=False)
+    last_name = Column(String(100), nullable=False)
+    admission_number = Column(String(50), nullable=False, index=True)
+    date_of_birth = Column(Date, nullable=True)
+    gender = Column(String(20), nullable=True)
+    
+    # Academic Link
+    grade_level_id = Column(Integer, ForeignKey("grade_levels.id", ondelete='SET NULL'), nullable=True)
+    
+    # Parent/Guardian Info
+    parent_name = Column(String(100), nullable=True)
+    parent_phone = Column(String(20), nullable=True)
+    parent_email = Column(String(100), nullable=True)
+    
+    # System Link
+    user_id = Column(Integer, ForeignKey("users.id", ondelete='SET NULL'), nullable=True)
+    customer_id = Column(Integer, ForeignKey("customers.id", ondelete='SET NULL'), nullable=True)
+    
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    tenant = relationship("Tenant")
+    grade_level = relationship("GradeLevel", back_populates="students")
+    user = relationship("User")
+    customer = relationship("Customer")
+    grades = relationship("GradeRecord", back_populates="student", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint('tenant_id', 'admission_number', name='uq_tenant_admission_number'),
+        Index('idx_students_tenant', 'tenant_id'),
+        Index('idx_students_grade', 'grade_level_id'),
+    )
+
+    def __repr__(self):
+        return f"<Student {self.first_name} {self.last_name} ({self.admission_number})>"
+
+
+class Assessment(Base):
+    """Represents an exam, quiz, or test instance"""
+    __tablename__ = "assessments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete='CASCADE'), nullable=False, index=True)
+    
+    name = Column(String(100), nullable=False)
+    type = Column(SQLEnum(AssessmentType), default=AssessmentType.EXAM)
+    term_id = Column(Integer, ForeignKey("academic_terms.id", ondelete='CASCADE'), nullable=False)
+    
+    max_marks = Column(Float, default=100.0)
+    weightage = Column(Float, default=100.0)  # Percentage of final grade
+    
+    date = Column(Date, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    tenant = relationship("Tenant")
+    term = relationship("AcademicTerm")
+
+    __table_args__ = (
+        Index('idx_assessments_tenant', 'tenant_id'),
+        Index('idx_assessments_term', 'term_id'),
+    )
+
+    def __repr__(self):
+        return f"<Assessment {self.name} ({self.type})>"
+
+
+class GradeRecord(Base):
+    """Represents a student's score in an assessment"""
+    __tablename__ = "grade_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete='CASCADE'), nullable=False, index=True)
+    
+    student_id = Column(Integer, ForeignKey("students.id", ondelete='CASCADE'), nullable=False)
+    subject_id = Column(Integer, ForeignKey("subjects.id", ondelete='CASCADE'), nullable=False)
+    assessment_id = Column(Integer, ForeignKey("assessments.id", ondelete='CASCADE'), nullable=False)
+    
+    marks_obtained = Column(Float, nullable=False)
+    remarks = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    tenant = relationship("Tenant")
+    student = relationship("Student", back_populates="grades")
+    subject = relationship("Subject")
+    assessment = relationship("Assessment")
+
+    __table_args__ = (
+        UniqueConstraint('student_id', 'assessment_id', 'subject_id', name='uq_student_assessment_subject'),
+        Index('idx_grades_tenant', 'tenant_id'),
+        Index('idx_grades_student', 'student_id'),
+        Index('idx_grades_subject', 'subject_id'),
+        Index('idx_grades_assessment', 'assessment_id'),
+    )
+
+    def __repr__(self):
+        return f"<GradeRecord Student:{self.student_id} Marks:{self.marks_obtained}>"

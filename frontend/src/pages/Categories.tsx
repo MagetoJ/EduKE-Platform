@@ -9,7 +9,7 @@ interface EditForm {
   minimum_margin: string;
 }
 
-export default function Categories() {
+export default function Departments() {
   const { token } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,8 +25,8 @@ export default function Categories() {
       setCategories(data);
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch categories:', err);
-      setError('Failed to load categories. Please try again.');
+      console.error('Failed to fetch departments:', err);
+      setError('Failed to load departments. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -64,18 +64,18 @@ export default function Categories() {
 
     // Check if values are valid numbers or null
     if (targetValue !== null && (isNaN(targetValue) || targetValue < 0 || targetValue > 100)) {
-      setError('Target margin must be between 0 and 100%');
+      setError('Financial target must be between 0 and 100%');
       return;
     }
 
     if (minimumValue !== null && (isNaN(minimumValue) || minimumValue < 0 || minimumValue > 100)) {
-      setError('Minimum margin must be between 0 and 100%');
+      setError('Scholarship reserve must be between 0 and 100%');
       return;
     }
 
     // Validate: minimum cannot exceed target
     if (targetValue !== null && minimumValue !== null && minimumValue > targetValue) {
-      setError('Minimum margin cannot be greater than target margin');
+      setError('Scholarship reserve cannot be greater than financial target');
       return;
     }
 
@@ -89,15 +89,15 @@ export default function Categories() {
       setEditingId(null);
       setError(null);
     } catch (err) {
-      console.error('Failed to save margins:', err);
-      setError('Failed to save margins. Please try again.');
+      console.error('Failed to save settings:', err);
+      setError('Failed to save settings. Please try again.');
     } finally {
       setSavingId(null);
     }
   };
 
   const resetToDefaults = async (categoryId: number) => {
-    if (!confirm('Reset this category to system defaults (25% target, 15% minimum)?')) {
+    if (!confirm('Reset this department to system defaults (25% target, 15% reserve)?')) {
       return;
     }
 
@@ -110,8 +110,8 @@ export default function Categories() {
       await fetchCategories();
       setError(null);
     } catch (err) {
-      console.error('Failed to reset margins:', err);
-      setError('Failed to reset margins. Please try again.');
+      console.error('Failed to reset settings:', err);
+      setError('Failed to reset settings. Please try again.');
     } finally {
       setSavingId(null);
     }
@@ -129,7 +129,7 @@ export default function Categories() {
     return (
       <Card>
         <CardContent>
-          <div className="text-center py-8 text-gray-600">Loading categories...</div>
+          <div className="text-center py-8 text-gray-600">Loading departments...</div>
         </CardContent>
       </Card>
     );
@@ -151,16 +151,16 @@ export default function Categories() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
+                    Department
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Products
+                    Courses
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Target Margin (%)
+                    Financial Target (%)
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Minimum Margin (%)
+                    Scholarship Reserve (%)
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -313,7 +313,7 @@ export default function Categories() {
 
           {categories.length === 0 && (
             <div className="text-center py-8 text-gray-600">
-              No categories found. Categories are automatically created when products are added.
+              No departments found. Departments are automatically created when courses are added.
             </div>
           )}
         </CardContent>
@@ -345,15 +345,15 @@ export default function Categories() {
                       )}
                     </div>
                     <p className="text-sm text-gray-600">
-                      {category.product_count ?? 0} products
+                      {category.product_count ?? 0} courses
                     </p>
                   </div>
                 </div>
 
-                {/* Margin Info */}
+                {/* Info */}
                 <div className="grid grid-cols-2 gap-3 mb-3 pb-3 border-b">
                   <div>
-                    <p className="text-xs text-gray-600 mb-1">Target Margin</p>
+                    <p className="text-xs text-gray-600 mb-1">Financial Target</p>
                     {isEditing ? (
                       <input
                         type="number"
@@ -381,7 +381,7 @@ export default function Categories() {
                     )}
                   </div>
                   <div>
-                    <p className="text-xs text-gray-600 mb-1">Minimum Margin</p>
+                    <p className="text-xs text-gray-600 mb-1">Scholarship Reserve</p>
                     {isEditing ? (
                       <input
                         type="number"

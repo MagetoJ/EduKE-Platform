@@ -42,6 +42,8 @@ export function Inventory() {
   const loading = isViewingDefaultBranch ? contextLoading : localLoading;
   const [_categories, setCategories] = useState<Category[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
+  const [instructors, setInstructors] = useState<any[]>([]);
+  const [academicTerms, setAcademicTerms] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -108,8 +110,10 @@ export function Inventory() {
     barcode: '',
     unit: '',
     is_available: true,
-    is_service: false,
-    initial_quantity: 0  // Optional initial stock quantity
+    is_service: true, // Default to true for courses
+    initial_quantity: 0,
+    instructor_id: undefined,
+    academic_term_id: undefined
   });
 
   // Fetch products for non-default branches
@@ -156,10 +160,32 @@ export function Inventory() {
     }
   };
 
+  const fetchInstructors = async () => {
+    if (!token) return;
+    try {
+      const data = await api.getTenantUsers(token);
+      setInstructors(data);
+    } catch (error) {
+      console.error('Failed to fetch instructors:', error);
+    }
+  };
+
+  const fetchAcademicTerms = async () => {
+    if (!token) return;
+    try {
+      const data = await api.getAcademicTerms(token);
+      setAcademicTerms(data);
+    } catch (error) {
+      console.error('Failed to fetch academic terms:', error);
+    }
+  };
+
   // Fetch categories and units on mount
   useEffect(() => {
     fetchCategories();
     fetchUnits();
+    fetchInstructors();
+    fetchAcademicTerms();
   }, [token]);
 
   // Fetch branch-specific products when viewing non-default branch
@@ -338,8 +364,10 @@ export function Inventory() {
         barcode: '',
         unit: '',
         is_available: true,
-        is_service: false,
-        initial_quantity: 0
+        is_service: true, // Reset to true for courses
+        initial_quantity: 0,
+        instructor_id: undefined,
+        academic_term_id: undefined
       });
       handleRemoveImage();
 
@@ -412,6 +440,8 @@ export function Inventory() {
     if (isAdmin && sellingPrice !== editingProduct.selling_price) updateData.selling_price = sellingPrice;
     if (newProduct.category_id !== editingProduct.category_id) updateData.category_id = newProduct.category_id;
     if (newProduct.unit !== editingProduct.unit) updateData.unit = newProduct.unit;
+    if (newProduct.instructor_id !== editingProduct.instructor_id) updateData.instructor_id = newProduct.instructor_id;
+    if (newProduct.academic_term_id !== editingProduct.academic_term_id) updateData.academic_term_id = newProduct.academic_term_id;
     // reorder_level removed - auto-calculated by backend
     // is_available field removed from UI - products are available by default
 
@@ -486,7 +516,9 @@ export function Inventory() {
       category_id: product.category_id,
       unit: product.unit,
       is_available: product.is_available,
-      is_service: product.is_service  // NEW: Include service flag
+      is_service: product.is_service,
+      instructor_id: product.instructor_id,
+      academic_term_id: product.academic_term_id
     });
     setIsEditModalOpen(true);
     setFormError('');
@@ -815,12 +847,12 @@ export function Inventory() {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900">Inventory</h1>
-            <p className="text-sm md:text-base text-gray-600 mt-1">Manage your products and stock levels</p>
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900">Course Management</h1>
+            <p className="text-sm md:text-base text-gray-600 mt-1">Manage school courses, grade levels, and fee structures</p>
             {isBranchTenant && organization && (
               <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
                 <Package className="h-3 w-3" />
-                Products from {organization.name} catalog • Branch-specific stock
+                Courses from {organization.name} curriculum • Branch-specific data
               </p>
             )}
           </div>
@@ -834,7 +866,7 @@ export function Inventory() {
               className="flex-1 sm:flex-initial"
               disabled={!isEditable}
             >
-              <Plus className="mr-2 h-4 w-4" /> Add
+              <Plus className="mr-2 h-4 w-4" /> Add Course
             </Button>
             <Button
               variant="outline"
@@ -905,14 +937,14 @@ export function Inventory() {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-4 text-left font-semibold text-gray-700">
-                    SKU
-                    <div className="text-xs font-normal text-gray-500">Stock Keeping Unit</div>
+                    Course Code
+                    <div className="text-xs font-normal text-gray-500">Unique Identifier</div>
                   </th>
-                  <th className="px-6 py-4 text-left font-semibold text-gray-700">Product</th>
-                  <th className="px-6 py-4 text-left font-semibold text-gray-700">Category</th>
-                  <th className="px-6 py-4 text-right font-semibold text-gray-700">Base Cost</th>
-                  <th className="px-6 py-4 text-right font-semibold text-gray-700">Selling Price</th>
-                  <th className="px-6 py-4 text-right font-semibold text-gray-700">Stock</th>
+                  <th className="px-6 py-4 text-left font-semibold text-gray-700">Course</th>
+                  <th className="px-6 py-4 text-left font-semibold text-gray-700">Department</th>
+                  <th className="px-6 py-4 text-right font-semibold text-gray-700">Operational Cost</th>
+                  <th className="px-6 py-4 text-right font-semibold text-gray-700">Term Fee</th>
+                  <th className="px-6 py-4 text-right font-semibold text-gray-700">Capacity</th>
                   <th className="px-6 py-4 text-center font-semibold text-gray-700">Status</th>
                   <th className="px-6 py-4 text-center font-semibold text-gray-700">Actions</th>
                 </tr>
@@ -942,7 +974,21 @@ export function Inventory() {
                               <Badge variant="secondary" className="text-xs">Org</Badge>
                             )}
                           </div>
-                          <div className="text-xs text-gray-600">{product.unit}</div>
+                          <div className="flex flex-col gap-0.5 mt-0.5">
+                            <div className="text-xs text-gray-600 flex items-center gap-1">
+                              <span className="font-medium">Unit:</span> {product.unit}
+                            </div>
+                            {product.instructor_name && (
+                              <div className="text-xs text-blue-600 flex items-center gap-1">
+                                <span className="font-medium">Instructor:</span> {product.instructor_name}
+                              </div>
+                            )}
+                            {product.academic_term_name && (
+                              <div className="text-xs text-green-600 flex items-center gap-1">
+                                <span className="font-medium">Term:</span> {product.academic_term_name}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -1101,6 +1147,18 @@ export function Inventory() {
                     )}
                   </p>
                 </div>
+                {product.instructor_name && (
+                  <div>
+                    <p className="text-gray-600">Instructor</p>
+                    <p className="font-medium text-blue-600">{product.instructor_name}</p>
+                  </div>
+                )}
+                {product.academic_term_name && (
+                  <div>
+                    <p className="text-gray-600">Term</p>
+                    <p className="font-medium text-green-600">{product.academic_term_name}</p>
+                  </div>
+                )}
               </div>
 
               {/* CHANGED: Hide receive button for services */}
@@ -1152,12 +1210,12 @@ export function Inventory() {
         )}
       </div>
 
-      {/* Add Product Modal */}
+      {/* Add Course Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900">Add Product</h2>
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900">Add Course</h2>
               <Button
                 variant="ghost"
                 size="icon"
@@ -1200,7 +1258,7 @@ export function Inventory() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Product Name <span className="text-red-500">*</span>
+                    Course Name <span className="text-red-500">*</span>
                   </label>
                   <Input
                     required
@@ -1208,33 +1266,25 @@ export function Inventory() {
                     onChange={e => {
                       setNewProduct({...newProduct, name: e.target.value});
                     }}
-                    placeholder="e.g., 'MacBook Pro 16-inch' or 'IT Consultation'"
+                    placeholder="e.g., 'Grade 1' or 'Advanced Mathematics'"
                   />
                 </div>
 
                 {/* Barcode Field */}
                 <div className="space-y-2 md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Manufacturer Barcode (Optional)
+                    Course Metadata / Academic Year (Optional)
                   </label>
                   <div className="relative">
                     <Input
                       value={newProduct.barcode || ''}
                       onChange={e => setNewProduct({...newProduct, barcode: e.target.value})}
-                      placeholder="EAN-13, UPC-A, or other barcode format"
+                      placeholder="e.g., 2024/2025"
                       className="pr-12"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setIsAddProductScannerOpen(true)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary-600 transition-colors p-1.5"
-                      title="Scan barcode"
-                    >
-                      <ScanLine className="h-4 w-4" />
-                    </button>
                   </div>
                   <p className="text-xs text-gray-500">
-                    Scan or enter the barcode from product packaging. Leave blank for products without barcodes.
+                    Use this field for additional academic identifiers or years.
                   </p>
                 </div>
 
@@ -1250,7 +1300,7 @@ export function Inventory() {
                     />
                     <div className="flex-1">
                       <label htmlFor="is_service_create" className="text-sm font-medium text-gray-900 cursor-pointer">
-                        This is a service (no stock tracking)
+                        This is an academic service (no physical inventory tracking)
                       </label>
                     </div>
                   </div>
@@ -1260,14 +1310,14 @@ export function Inventory() {
                 {!newProduct.is_service && (
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Unit <span className="text-red-500">*</span>
+                    Duration/Term <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                       <Input
                         required
-                        placeholder="Search unit (e.g., kg, pcs, liters)..."
+                        placeholder="Search term (e.g., Terms, Semesters)..."
                         className={unitSearch || newProduct.unit ? "pl-10 pr-10" : "pl-10"}
                         value={unitSearch || newProduct.unit || ''}
                         onChange={(e) => {
@@ -1337,23 +1387,59 @@ export function Inventory() {
 
                 {/* Initial Quantity Field (hidden for services) */}
                 {!newProduct.is_service && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Initial Quantity (Optional)
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={newProduct.initial_quantity || 0}
-                    onChange={e => setNewProduct({...newProduct, initial_quantity: parseInt(e.target.value) || 0})}
-                    placeholder="0"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Leave at 0 to add stock later using "Adjust" button
-                  </p>
-                </div>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Enrollment Capacity (Optional)
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={newProduct.initial_quantity || 0}
+                      onChange={e => setNewProduct({...newProduct, initial_quantity: parseInt(e.target.value) || 0})}
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Initial number of students or seats available. Leave at 0 to add later using "Adjust".
+                    </p>
+                  </div>
                 )}
 
+                {/* SCHOOL MANAGEMENT FIELDS */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Lead Instructor
+                  </label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={newProduct.instructor_id || ''}
+                    onChange={e => setNewProduct({...newProduct, instructor_id: parseInt(e.target.value) || undefined})}
+                  >
+                    <option value="">Select Instructor</option>
+                    {instructors.map(instructor => (
+                      <option key={instructor.id} value={instructor.id}>
+                        {instructor.full_name || instructor.username}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Academic Term
+                  </label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={newProduct.academic_term_id || ''}
+                    onChange={e => setNewProduct({...newProduct, academic_term_id: parseInt(e.target.value) || undefined})}
+                  >
+                    <option value="">Select Term</option>
+                    {academicTerms.map(term => (
+                      <option key={term.id} value={term.id}>
+                        {term.name} {term.is_current ? '(Current)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
 
@@ -1461,12 +1547,12 @@ export function Inventory() {
         </div>
       )}
 
-      {/* Edit Product Modal */}
+      {/* Edit Course Modal */}
       {isEditModalOpen && editingProduct && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900">Edit Product</h2>
+              <h2 className="text-xl md:text-2xl font-bold text-gray-900">Edit Course</h2>
               <Button
                 variant="ghost"
                 size="icon"
@@ -1510,28 +1596,28 @@ export function Inventory() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2 md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Product Name <span className="text-red-500">*</span>
+                    Course Name <span className="text-red-500">*</span>
                   </label>
                   <Input
                     required
                     value={newProduct.name}
                     onChange={e => setNewProduct({...newProduct, name: e.target.value})}
-                    placeholder="Enter product name"
+                    placeholder="Enter course name"
                   />
                 </div>
 
                 {/* Barcode Field */}
                 <div className="space-y-2 md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Manufacturer Barcode (Optional)
+                    Course Metadata / Academic Year (Optional)
                   </label>
                   <Input
                     value={newProduct.barcode || ''}
                     onChange={e => setNewProduct({...newProduct, barcode: e.target.value})}
-                    placeholder="EAN-13, UPC-A, or other barcode format"
+                    placeholder="e.g., 2024/2025"
                   />
                   <p className="text-xs text-gray-500">
-                    Manufacturer barcode for scanning. Leave blank for products without barcodes.
+                    Additional academic identifiers or years.
                   </p>
                 </div>
 
@@ -1551,11 +1637,11 @@ export function Inventory() {
                     />
                     <div className="flex-1">
                       <label htmlFor="is_service_edit" className="text-sm font-medium text-gray-900 cursor-pointer">
-                        This is a service (no stock tracking)
+                        This is an academic service (no physical inventory tracking)
                       </label>
                       {editingProduct.is_service !== newProduct.is_service && (
                         <p className="text-xs text-orange-700 mt-2 font-medium">
-                          ⚠️ Changing service status will affect stock management for this product.
+                          ⚠️ Changing service status will affect capacity management for this course.
                         </p>
                       )}
                     </div>
@@ -1564,10 +1650,10 @@ export function Inventory() {
 
                 {/* Category and Unit are hidden in edit mode - set by AI during creation */}
 
-                {/* Units and Pricing Section */}
+                {/* Fee Structure Section */}
                 <div className="md:col-span-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <h3 className="text-sm font-semibold text-gray-900">Units and Pricing</h3>
+                    <h3 className="text-sm font-semibold text-gray-900">Fee Structure & Duration</h3>
                     <div className="flex items-center gap-2">
                       {/* Profit Margin - inline with header */}
                       {isAdmin && newProduct.base_cost && newProduct.selling_price && (
@@ -1599,14 +1685,14 @@ export function Inventory() {
                       {!newProduct.is_service && (
                       <div className="space-y-2">
                         <label className="block text-sm font-medium text-gray-700">
-                          Unit <span className="text-red-500">*</span>
+                          Duration/Term <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
                           <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <Input
                               required
-                              placeholder="Search unit..."
+                              placeholder="Search term..."
                               className={editUnitSearch || newProduct.unit ? "pl-10 pr-10" : "pl-10"}
                               value={editUnitSearch || newProduct.unit || ''}
                               onChange={(e) => {
@@ -1676,10 +1762,10 @@ export function Inventory() {
                       </div>
                       )}
 
-                      {/* Base Cost */}
+                      {/* Operational Cost */}
                       <div className="space-y-2">
                         <label className="block text-sm font-medium text-gray-700">
-                          Base Cost (KES)
+                          Operational Cost (KES)
                         </label>
                         <Input
                           type="number"
@@ -1696,10 +1782,10 @@ export function Inventory() {
                         )}
                       </div>
 
-                      {/* Selling Price */}
+                      {/* Term Fee */}
                       <div className="space-y-2">
                         <label className="block text-sm font-medium text-gray-700">
-                          Selling Price (KES)
+                          Term Fee (KES)
                         </label>
                         <Input
                           type="number"
@@ -1723,6 +1809,45 @@ export function Inventory() {
                       </p>
                     </div>
                   )}
+                </div>
+
+                {/* SCHOOL MANAGEMENT FIELDS */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Lead Instructor
+                    </label>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={newProduct.instructor_id || ''}
+                      onChange={e => setNewProduct({...newProduct, instructor_id: parseInt(e.target.value) || undefined})}
+                    >
+                      <option value="">Select Instructor</option>
+                      {instructors.map(instructor => (
+                        <option key={instructor.id} value={instructor.id}>
+                          {instructor.full_name || instructor.username}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Academic Term
+                    </label>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      value={newProduct.academic_term_id || ''}
+                      onChange={e => setNewProduct({...newProduct, academic_term_id: parseInt(e.target.value) || undefined})}
+                    >
+                      <option value="">Select Term</option>
+                      {academicTerms.map(term => (
+                        <option key={term.id} value={term.id}>
+                          {term.name} {term.is_current ? '(Current)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Current Quantity removed - use Stock Management instead */}

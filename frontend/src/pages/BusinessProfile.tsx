@@ -57,7 +57,7 @@ export default function BusinessProfile() {
     owner_email: '',
     phone: '',
     address: '',
-    business_type: '',
+    business_type: 'School',
     currency: 'USD',
     tax_rate: 0,
   });
@@ -137,7 +137,7 @@ export default function BusinessProfile() {
 
       const updatedTenant = await api.updateTenant(token, formData);
       setTenant(updatedTenant);
-      setMessage({ type: 'success', text: 'Business profile updated successfully!' });
+      setMessage({ type: 'success', text: 'School profile updated successfully!' });
 
       // Clear message after 3 seconds
       setTimeout(() => setMessage(null), 3000);
@@ -177,7 +177,7 @@ export default function BusinessProfile() {
         updateTenantLogo(updatedTenant.logo_url);
       }
       
-      setMessage({ type: 'success', text: 'Logo uploaded successfully!' });
+      setMessage({ type: 'success', text: 'School logo uploaded successfully!' });
 
       // Clear message after 3 seconds
       setTimeout(() => setMessage(null), 3000);
@@ -202,7 +202,7 @@ export default function BusinessProfile() {
       updateTenantLogo('');
       
       setShowDeleteConfirm(false);
-      setMessage({ type: 'success', text: 'Logo deleted successfully!' });
+      setMessage({ type: 'success', text: 'School logo deleted successfully!' });
 
       // Clear message after 3 seconds
       setTimeout(() => setMessage(null), 3000);
@@ -218,7 +218,7 @@ export default function BusinessProfile() {
 
     // Verify confirmation text
     if (deleteConfirmationText !== tenant.name) {
-      setMessage({ type: 'error', text: 'Business name does not match. Deletion cancelled.' });
+      setMessage({ type: 'error', text: 'School name does not match. Deletion cancelled.' });
       return;
     }
 
@@ -259,7 +259,7 @@ export default function BusinessProfile() {
     return (
       <div className="text-center py-12">
         <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-500">Failed to load business profile</p>
+        <p className="text-gray-500">Failed to load school profile</p>
       </div>
     );
   }
@@ -268,12 +268,12 @@ export default function BusinessProfile() {
   const isAdmin = user?.role === 'admin';
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-4xl mx-auto pb-12">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Business Profile</h2>
+        <h2 className="text-2xl font-bold text-gray-900">School Profile</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Manage your business information and branding
+          Manage your school information and branding
         </p>
       </div>
 
@@ -297,7 +297,7 @@ export default function BusinessProfile() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <Building2 className="h-5 w-5" />
-          Business Logo
+          School Logo
         </h3>
 
         <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6">
@@ -364,24 +364,24 @@ export default function BusinessProfile() {
 
             {!isAdmin && (
               <p className="mt-2 text-xs text-amber-600 text-center md:text-left">
-                Only administrators can upload or delete the business logo
+                Only administrators can upload or delete the school logo
               </p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Business Information Form */}
+      {/* School Information Form */}
       <form onSubmit={handleSave} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Business Information
+          School Information
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Business Name */}
+          {/* School Name */}
           <div className="md:col-span-2">
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Business Name <span className="text-red-500">*</span>
+              School Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -526,7 +526,7 @@ export default function BusinessProfile() {
             {isAdmin ? (
               <>Fields marked with <span className="text-red-500">*</span> are required</>
             ) : (
-              <span className="text-amber-600">Only administrators can edit business profile</span>
+              <span className="text-amber-600">Only administrators can edit school profile</span>
             )}
           </p>
 
@@ -558,15 +558,15 @@ export default function BusinessProfile() {
                 Danger Zone
               </h3>
               <p className="text-sm text-red-800 mb-4">
-                Permanently delete this business and all associated data. This action cannot be undone.
-                All products, sales, users, and settings will be permanently removed. User accounts that only belong to this business will also be deleted.
+                Permanently delete this school and all associated data. This action cannot be undone.
+                All courses, enrollment, students, users, and settings will be permanently removed. User accounts that only belong to this school will also be deleted.
               </p>
               <button
                 onClick={() => setShowDeleteBusinessConfirm(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm transition-colors"
               >
                 <Trash2 className="h-4 w-4" />
-                Delete Business
+                Delete School
               </button>
             </div>
           </div>
@@ -578,10 +578,10 @@ export default function BusinessProfile() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Delete Logo
+              Delete School Logo
             </h3>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to delete your business logo? This action cannot be undone.
+              Are you sure you want to delete your school logo? This action cannot be undone.
             </p>
             <div className="flex gap-3 justify-end">
               <button
@@ -602,7 +602,7 @@ export default function BusinessProfile() {
         </div>
       )}
 
-      {/* Delete Business Confirmation Modal */}
+      {/* Delete School Confirmation Modal */}
       {showDeleteBusinessConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
@@ -610,20 +610,20 @@ export default function BusinessProfile() {
               <AlertTriangle className="h-6 w-6 text-red-600 flex-shrink-0" />
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  Delete Business
+                  Delete School
                 </h3>
                 <p className="text-gray-600 text-sm">
                   This action is <strong>permanent and irreversible</strong>. All data will be deleted:
                 </p>
                 <ul className="mt-2 text-sm text-gray-600 list-disc list-inside space-y-1">
-                  <li>All products and inventory</li>
-                  <li>All sales records</li>
-                  <li>All team members (removed from business)</li>
+                  <li>All courses and inventory</li>
+                  <li>All student records</li>
+                  <li>All team members (removed from school)</li>
                   <li>All settings and configurations</li>
-                  <li><strong>User accounts that only belong to this business</strong></li>
+                  <li><strong>User accounts that only belong to this school</strong></li>
                 </ul>
                 <p className="mt-3 text-sm text-amber-700 bg-amber-50 p-2 rounded">
-                  <strong>Note:</strong> If you only belong to this business, your account will be permanently deleted.
+                  <strong>Note:</strong> If you only belong to this school, your account will be permanently deleted.
                 </p>
               </div>
             </div>
@@ -637,7 +637,7 @@ export default function BusinessProfile() {
                 id="confirmDelete"
                 value={deleteConfirmationText}
                 onChange={(e) => setDeleteConfirmationText(e.target.value)}
-                placeholder="Enter business name"
+                placeholder="Enter school name"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
               />
             </div>
@@ -658,7 +658,7 @@ export default function BusinessProfile() {
                 disabled={deleting || deleteConfirmationText !== tenant?.name}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium text-sm disabled:bg-red-400 disabled:cursor-not-allowed"
               >
-                {deleting ? 'Deleting...' : 'Delete Business Permanently'}
+                {deleting ? 'Deleting...' : 'Delete School Permanently'}
               </button>
             </div>
           </div>

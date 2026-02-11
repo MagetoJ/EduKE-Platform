@@ -222,6 +222,12 @@ export interface Product {
   is_service: boolean;
   created_at: string;
   category_rel?: Category;
+  
+  // SCHOOL MANAGEMENT FIELDS
+  instructor_id?: number;
+  academic_term_id?: number;
+  instructor_name?: string;
+  academic_term_name?: string;
 }
 
 export interface ProductCreate {
@@ -238,6 +244,10 @@ export interface ProductCreate {
   is_service?: boolean;
   initial_quantity?: number;  // Optional - initial stock quantity
   // reorder_level removed - auto-calculated by backend
+  
+  // SCHOOL MANAGEMENT FIELDS
+  instructor_id?: number;
+  academic_term_id?: number;
 }
 
 export interface ProductUpdate {
@@ -252,6 +262,10 @@ export interface ProductUpdate {
   is_available?: boolean;
   // is_service removed - immutable after creation
   // reorder_level removed - auto-calculated by backend
+  
+  // SCHOOL MANAGEMENT FIELDS
+  instructor_id?: number;
+  academic_term_id?: number;
 }
 
 // Price History interfaces
@@ -293,6 +307,8 @@ export interface Sale {
   customer_name: string;
   customer_email?: string;
   customer_phone?: string;
+  student_id?: number; // LINK TO STUDENT
+  student_name?: string;
   whatsapp_sent?: boolean;
   email_sent?: boolean;
   status: 'pending' | 'completed' | 'cancelled';
@@ -324,11 +340,12 @@ export interface SaleCreate {
   customer_name?: string;
   customer_email?: string;
   customer_phone?: string;
+  student_id?: number; // LINK TO STUDENT
   delivery_method?: ReceiptDeliveryMethod;
   payment_method?: string;
   notes?: string;
   items: SaleItemCreate[];
-  customer_id?: number;  // Required when payment_method is "Credit"
+  customer_id?: number;  // Required when payment_method is "Credit" (legacy fallback)
   due_date?: string;  // ISO date string, required when payment_method is "Credit"
 }
 
@@ -448,10 +465,15 @@ export interface DashboardStats {
   total_revenue: number;
   total_sales: number;
   total_products: number;
+  total_customers: number;
   low_stock_items: number;
   total_stock_value: number | null;  // Optional - hidden from staff users
   today_revenue: number;
   today_sales: number;
+  total_students: number;
+  total_classes: number;
+  total_subjects: number;
+  avg_grade: number;
 }
 
 export interface RevenueByDate {
@@ -839,6 +861,93 @@ export interface ExpenseUpdate {
   description?: string;
   expense_date?: string;
   branch_id?: number | null;
+}
+
+// School Management interfaces
+export interface GradeLevel {
+  id: number;
+  tenant_id: number;
+  name: string;
+  level?: number;
+  stream?: string;
+  teacher_id?: number;
+  created_at: string;
+  updated_at: string;
+  teacher_name?: string;
+}
+
+export interface GradeLevelCreate {
+  name: string;
+  level?: number;
+  stream?: string;
+  teacher_id?: number;
+}
+
+export interface AcademicTerm {
+  id: number;
+  tenant_id: number;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_current: boolean;
+  created_at: string;
+}
+
+export interface Subject {
+  id: number;
+  tenant_id: number;
+  name: string;
+  code?: string;
+  description?: string;
+  created_at: string;
+}
+
+export interface Student {
+  id: number;
+  tenant_id: number;
+  first_name: string;
+  last_name: string;
+  admission_number: string;
+  date_of_birth?: string;
+  gender?: string;
+  grade_level_id?: number;
+  parent_name?: string;
+  parent_phone?: string;
+  parent_email?: string;
+  user_id?: number;
+  customer_id?: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  grade_level_name?: string;
+}
+
+export interface Assessment {
+  id: number;
+  tenant_id: number;
+  name: string;
+  type: 'exam' | 'quiz' | 'assignment' | 'project' | 'cat';
+  term_id: number;
+  max_marks: number;
+  weightage: number;
+  date?: string;
+  created_at: string;
+  term_name?: string;
+}
+
+export interface GradeRecord {
+  id: number;
+  tenant_id: number;
+  student_id: number;
+  subject_id: number;
+  assessment_id: number;
+  marks_obtained: number;
+  remarks?: string;
+  created_at: string;
+  updated_at: string;
+  student_name?: string;
+  subject_name?: string;
+  assessment_name?: string;
 }
 
 async function fetchAPI(endpoint: string, options: FetchOptions = {}) {
@@ -1618,4 +1727,57 @@ export const api = {
     const params = prefix ? `?prefix=${encodeURIComponent(prefix)}` : '';
     return fetchAPI(`/expenses/types${params}`, { token });
   },
+
+  // ==================== SCHOOL MANAGEMENT ENDPOINTS ====================
+
+  getGradeLevels: (token: string) =>
+    fetchAPI('/grade-levels', { token }),
+
+  getAcademicTerms: (token: string) =>
+    fetchAPI('/academic-terms', { token }),
+
+  createGradeLevel: (token: string, data: GradeLevelCreate) =>
+    fetchAPI('/grade-levels', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  getStudents: (token: string, gradeLevelId?: number, isActive?: boolean, search?: string) => {
+    const params = new URLSearchParams();
+    if (gradeLevelId) params.append('grade_level_id', gradeLevelId.toString());
+    if (isActive !== undefined) params.append('is_active', String(isActive));
+    if (search) params.append('search', search);
+    const queryString = params.toString();
+    return fetchAPI(`/students${queryString ? `?${queryString}` : ''}`, { token });
+  },
+
+  createStudent: (token: string, data: Partial<Student>) =>
+    fetchAPI('/students', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  getSubjects: (token: string) =>
+    fetchAPI('/subjects', { token }),
+
+  createSubject: (token: string, data: { name: string; code?: string; description?: string }) =>
+    fetchAPI('/subjects', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  getAssessments: (token: string, termId?: number) => {
+    const params = termId ? `?term_id=${termId}` : '';
+    return fetchAPI(`/assessments${params}`, { token });
+  },
+
+  enterGrade: (token: string, data: { student_id: number; subject_id: number; assessment_id: number; marks_obtained: number; remarks?: string }) =>
+    fetchAPI('/grade-records', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
 };
