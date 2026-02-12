@@ -178,13 +178,6 @@ services:
     
     healthCheckPath: /health
     
-    # Docker build arguments (injected at build time)
-    dockerBuildArgs:
-      - key: VITE_API_URL
-        value: https://eduke-api.onrender.com
-      - key: VITE_R2_PUBLIC_URL
-        sync: false  # Set in Render dashboard
-    
     envVars:
       # ===== BACKEND API (also needed for runtime scripts) =====
       - key: VITE_API_URL
