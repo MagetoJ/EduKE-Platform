@@ -417,7 +417,7 @@ def extract_subdomain_from_request(request: Request) -> Optional[str]:
     """
     Extract subdomain from request host.
     Examples:
-      - acme.statbricks.com -> acme
+      - acme.eduke.com -> acme
       - demo.localhost:8000 -> demo
       - localhost:8000 -> None
     """
@@ -433,7 +433,7 @@ def extract_subdomain_from_request(request: Request) -> Optional[str]:
     if len(parts) <= 1:
         return None
     
-    # If two parts (e.g., "statbricks.com"), no subdomain
+    # If two parts (e.g., "eduke.com"), no subdomain
     if len(parts) == 2:
         return None
     

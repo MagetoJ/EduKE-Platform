@@ -104,7 +104,7 @@ class Tenant(Base):
     
     # Business Identity
     name = Column(String(100), nullable=False)  # Business name
-    subdomain = Column(String(50), unique=True, nullable=False, index=True)  # acme.statbricks.com
+    subdomain = Column(String(50), unique=True, nullable=False, index=True)  # acme.eduke.com
     slug = Column(String(50), unique=True, nullable=False, index=True)  # acme
 
     # Contact Information

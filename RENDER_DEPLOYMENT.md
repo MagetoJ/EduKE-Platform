@@ -1,6 +1,6 @@
 # 🚀 Render Deployment Guide
 
-Complete guide for deploying StatBricks to Render with separated frontend and backend services.
+Complete guide for deploying EduKE to Render with separated frontend and backend services.
 
 ## 📋 Table of Contents
 
@@ -24,7 +24,7 @@ Your app is deployed as **3 separate services**:
 ┌─────────────────────────────────────────────────┐
 │ Backend API (Python/FastAPI)                    │
 │ - Docker container                              │
-│ - URL: https://statbricks-api.onrender.com     │
+│ - URL: https://eduke-api.onrender.com     │
 │ - Auto-scaling: 1-10 instances                  │
 └─────────────────────────────────────────────────┘
                     ↕
@@ -37,7 +37,7 @@ Your app is deployed as **3 separate services**:
 ┌─────────────────────────────────────────────────┐
 │ Frontend (React + Nginx)                        │
 │ - Static site with Docker                      │
-│ - URL: https://statbricks.onrender.com         │
+│ - URL: https://eduke.onrender.com         │
 │ - Calls backend API                             │
 └─────────────────────────────────────────────────┘
          ↕              ↕              ↕
@@ -92,9 +92,9 @@ Follow the [Detailed Setup](#detailed-setup) section below.
 
 1. Go to Render Dashboard → **"New" → "PostgreSQL"**
 2. Configure:
-   - **Name:** `statbricks-db`
-   - **Database:** `statbricks`
-   - **User:** `statbricks`
+   - **Name:** `eduke-db`
+   - **Database:** `eduke`
+   - **User:** `eduke`
    - **Region:** `Oregon` (or your preferred region)
    - **Plan:** Free (testing) or Basic ($7/month) or Standard ($20/month)
 3. Click **"Create Database"**
@@ -105,7 +105,7 @@ Follow the [Detailed Setup](#detailed-setup) section below.
 1. Go to Render Dashboard → **"New" → "Web Service"**
 2. Connect your GitHub repository
 3. Configure:
-   - **Name:** `statbricks-api`
+   - **Name:** `eduke-api`
    - **Region:** `Oregon` (match database region)
    - **Branch:** `main`
    - **Root Directory:** Leave empty
@@ -116,21 +116,21 @@ Follow the [Detailed Setup](#detailed-setup) section below.
 
 4. **Environment Variables:**
    ```
-   DATABASE_URL → Link to statbricks-db (connectionString)
+   DATABASE_URL → Link to eduke-db (connectionString)
    SECRET_KEY → Auto-generate
-   CORS_ORIGINS → https://statbricks-frontend.onrender.com
+   CORS_ORIGINS → https://eduke-frontend.onrender.com
    ```
 
 5. Click **"Create Web Service"**
 6. Wait for deployment (~5-10 minutes)
-7. Save the backend URL (e.g., `https://statbricks-api.onrender.com`)
+7. Save the backend URL (e.g., `https://eduke-api.onrender.com`)
 
 ### Step 3: Create Frontend Service
 
 1. Go to Render Dashboard → **"New" → "Web Service"**
 2. Connect your GitHub repository (same repo)
 3. Configure:
-   - **Name:** `statbricks-frontend`
+   - **Name:** `eduke-frontend`
    - **Region:** `Oregon` (same as backend)
    - **Branch:** `main`
    - **Root Directory:** Leave empty
@@ -141,7 +141,7 @@ Follow the [Detailed Setup](#detailed-setup) section below.
 
 4. **Environment Variables:**
    ```
-   VITE_API_URL → https://statbricks-api.onrender.com
+   VITE_API_URL → https://eduke-api.onrender.com
    ```
 
 5. Click **"Create Web Service"**
@@ -152,7 +152,7 @@ Follow the [Detailed Setup](#detailed-setup) section below.
 1. Go to backend service → **"Environment"**
 2. Update `CORS_ORIGINS`:
    ```
-   https://statbricks-frontend.onrender.com,https://www.statbricks-frontend.onrender.com
+   https://eduke-frontend.onrender.com,https://www.eduke-frontend.onrender.com
    ```
 3. Click **"Save Changes"**
 4. Backend will auto-redeploy
@@ -194,14 +194,14 @@ Follow the [Detailed Setup](#detailed-setup) section below.
 ### 1. Verify Backend Health
 
 ```bash
-curl https://statbricks-api.onrender.com/health
+curl https://eduke-api.onrender.com/health
 
 # Should return: {"status":"healthy","service":"api"}
 ```
 
 ### 2. Test Frontend
 
-Visit: `https://statbricks-frontend.onrender.com`
+Visit: `https://eduke-frontend.onrender.com`
 
 - Should load the React app
 - Login with: `admin` / `admin123`
@@ -247,7 +247,7 @@ Edit `render.yaml`:
 ```yaml
 services:
   - type: web
-    name: statbricks-api
+    name: eduke-api
     plan: standard  # Required for auto-scaling
     autoDeploy: true
     scaling:
@@ -394,7 +394,7 @@ Your mobile apps (Android/iOS) should connect directly to the backend:
 
 ```typescript
 // React Native example
-const API_URL = 'https://statbricks-api.onrender.com';
+const API_URL = 'https://eduke-api.onrender.com';
 
 // Use this URL for all API calls
 fetch(`${API_URL}/auth/login`, {

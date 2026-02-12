@@ -1,7 +1,7 @@
 export function getApiBaseUrl() {
   // @ts-ignore
   if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
-    return "https://api.statbricks.com";
+    return "https://api.eduke.com";
   }
 
   // @ts-ignore
@@ -11,5 +11,5 @@ export function getApiBaseUrl() {
   }
 
   // Web
-  return "https://api.statbricks.com";
+  return "https://api.eduke.com";
 }

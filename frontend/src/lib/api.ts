@@ -3,7 +3,7 @@ const getApiBaseUrl = (): string => {
   // Check for React Native
   // @ts-ignore
   if (typeof navigator !== 'undefined' && navigator.product === 'ReactNative') {
-    return import.meta.env.VITE_API_URL || 'https://api.statbricks.com';
+    return import.meta.env.VITE_API_URL || 'https://api.eduke.com';
   }
 
   // Check for Electron

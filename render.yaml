@@ -11,7 +11,7 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     plan: starter  # $7/month (can upgrade to standard $25/month for auto-scaling)
-    region: singapore  # Change to your preferred region
+    region: oregon  # Change to your preferred region
     
     # Auto-scaling configuration (requires standard plan or higher)
     # autoDeploy: true
@@ -85,19 +85,19 @@ services:
       
       # ===== R2 STORAGE (CLOUDFLARE) =====
       - key: R2_ENDPOINT_URL
-        sync: false  # Format: https://<account-id>.r2.cloudflarestorage.com
+        value: ""  # Set in Render dashboard (Format: https://<account-id>.r2.cloudflarestorage.com)
       
       - key: R2_ACCESS_KEY_ID
-        sync: false
+        value: ""  # Set in Render dashboard
       
       - key: R2_SECRET_ACCESS_KEY
-        sync: false
+        value: ""  # Set in Render dashboard
       
       - key: R2_BUCKET_NAME
-        sync: false
+        value: ""  # Set in Render dashboard
       
       - key: R2_PUBLIC_URL
-        sync: false  # Format: https://your-bucket.r2.dev
+        value: ""  # Format: https://your-bucket.r2.dev
       
       # ===== AI CLASSIFICATION =====
       - key: ANTHROPIC_API_KEY
@@ -174,7 +174,7 @@ services:
     dockerContext: ./frontend
     dockerCommand: nginx -g 'daemon off;'
     plan: starter  # $7/month for static sites
-    region: singapore  # Should match backend region for lower latency
+    region: oregon  # Should match backend region for lower latency
     
     healthCheckPath: /health
     
@@ -203,7 +203,7 @@ databases:
     databaseName: eduke
     user: eduke
     plan: free  # Free tier - upgrade to 'basic' ($7/month, 1GB RAM) or 'standard' ($20/month, 4GB RAM) for production
-    region: singapore
+    region: oregon
     # postgresVersion: "16"  # Uncomment to specify version
 
 # ==========================================
