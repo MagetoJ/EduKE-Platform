@@ -6,7 +6,7 @@ services:
   # Backend API Service (FastAPI)
   # ==========================================
   - type: web
-    name: statbricks-api
+    name: eduke-api
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
@@ -27,12 +27,12 @@ services:
       # ===== DATABASE =====
       - key: DATABASE_URL
         fromDatabase:
-          name: statbricks-db
+          name: eduke-db
           property: connectionString
       
       - key: DB_PASSWORD
         fromDatabase:
-          name: statbricks-db
+          name: eduke-db
           property: password
       
       # ===== SECURITY =====
@@ -49,8 +49,8 @@ services:
       # IMPORTANT: List all allowed frontend origins (comma-separated, no spaces)
       # The backend will automatically strip whitespace, but it's best practice to avoid it
       - key: CORS_ORIGINS
-        value: https://pos.statbricks.com,https://www.pos.statbricks.com,https://statbricks-frontend.onrender.com
-        # Note: Custom domains (pos.statbricks.com) + Render default domain for fallback
+        value: https://pos.eduke.com,https://www.pos.eduke.com,https://eduke-frontend.onrender.com
+        # Note: Custom domains (pos.eduke.com) + Render default domain for fallback
         # Add new origins as needed when deploying to additional domains
       
       # ===== TIMEZONE =====
@@ -59,7 +59,7 @@ services:
 
       # ===== APPLICATION =====
       - key: APP_NAME
-        value: StatBricks
+        value: EduKE
       
       - key: DEBUG
         value: false
@@ -75,10 +75,10 @@ services:
         sync: false  # Set in Render dashboard
       
       - key: POSTMARK_FROM_EMAIL
-        value: noreply@statbricks.com
+        value: noreply@eduke.com
       
       - key: POSTMARK_FROM_NAME
-        value: StatBricks Team
+        value: EduKE Team
       
       - key: EMAIL_TEST_MODE
         value: false
@@ -161,14 +161,14 @@ services:
       
       # ===== FRONTEND URL =====
       - key: FRONTEND_URL
-        value: https://statbricks-frontend.onrender.com
+        value: https://eduke-frontend.onrender.com
         # Update with your actual frontend URL (custom domain or Render URL)
 
   # ==========================================
   # Frontend Static Site (React + Nginx)
   # ==========================================
   - type: web
-    name: statbricks-frontend
+    name: eduke-frontend
     runtime: docker
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: ./frontend
@@ -181,14 +181,14 @@ services:
     # Docker build arguments (injected at build time)
     dockerBuildArgs:
       - key: VITE_API_URL
-        value: https://statbricks-api.onrender.com
+        value: https://eduke-api.onrender.com
       - key: VITE_R2_PUBLIC_URL
         sync: false  # Set in Render dashboard
     
     envVars:
       # ===== BACKEND API (also needed for runtime scripts) =====
       - key: VITE_API_URL
-        value: https://statbricks-api.onrender.com
+        value: https://eduke-api.onrender.com
         # Update with your actual backend URL after first deploy
       
       # ===== R2 STORAGE (also needed for runtime scripts) =====
@@ -199,9 +199,9 @@ services:
 # Database (PostgreSQL)
 # ==========================================
 databases:
-  - name: statbricks-db
-    databaseName: statbricks
-    user: statbricks
+  - name: eduke-db
+    databaseName: eduke
+    user: eduke
     plan: free  # Free tier - upgrade to 'basic' ($7/month, 1GB RAM) or 'standard' ($20/month, 4GB RAM) for production
     region: singapore
     # postgresVersion: "16"  # Uncomment to specify version

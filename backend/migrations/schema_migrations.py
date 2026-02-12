@@ -20,7 +20,9 @@ from database import engine, Base
 from models import (
     Tenant, User, Category, Unit, Product, Sale, SaleItem,
     StockMovement, Organization, OrganizationCategory,
-    OrganizationProduct, BranchStock, tenant_users, organization_users
+    OrganizationProduct, BranchStock, tenant_users, organization_users,
+    GradeLevel, AcademicTerm, Subject, Student, Assessment, GradeRecord,
+    TimetableEntry
 )
 
 logger = logging.getLogger(__name__)

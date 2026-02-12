@@ -6,7 +6,49 @@ Uses WeasyPrint to convert HTML receipts to PDF format.
 import io
 import logging
 from weasyprint import HTML
-from email_service import generate_receipt_html
+from email_service import generate_receipt_html, generate_statement_html
+
+
+def generate_statement_pdf(
+    student_name: str,
+    admission_number: str,
+    tenant_name: str,
+    tenant_address: str,
+    tenant_phone: str,
+    logo_url: str,
+    transactions: list,
+    current_balance: float,
+    currency: str,
+    generated_at: str
+) -> bytes:
+    """Generate a PDF financial statement for a student"""
+    
+    try:
+        # Generate HTML
+        html_content = generate_statement_html(
+            student_name=student_name,
+            admission_number=admission_number,
+            tenant_name=tenant_name,
+            tenant_address=tenant_address,
+            tenant_phone=tenant_phone,
+            logo_url=logo_url,
+            transactions=transactions,
+            current_balance=current_balance,
+            currency=currency,
+            generated_at=generated_at
+        )
+        
+        # Convert HTML to PDF
+        pdf_buffer = io.BytesIO()
+        HTML(string=html_content).write_pdf(pdf_buffer)
+        pdf_bytes = pdf_buffer.getvalue()
+        
+        logger.info(f"Generated PDF statement for student {admission_number} ({len(pdf_bytes)} bytes)")
+        return pdf_bytes
+        
+    except Exception as e:
+        logger.error(f"Failed to generate PDF statement for student {admission_number}: {str(e)}")
+        raise
 
 logger = logging.getLogger(__name__)
 

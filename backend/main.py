@@ -1,15 +1,16 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request, File, UploadFile, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exception_handlers import http_exception_handler
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, desc, insert, update
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 from datetime import datetime, timedelta, date
 from typing import List, Optional
 import logging
 import os
+import io
 
 from database import get_db, init_db, async_session_maker
 from models import (
@@ -19,7 +20,8 @@ from models import (
     Permission,  # NEW: RBAC Permission enum
     Customer, CreditTransaction, CreditTransactionStatus, Payment, ReminderLog,
     Expense,
-    GradeLevel, AcademicTerm, Subject, Student, Assessment, GradeRecord, AssessmentType
+    GradeLevel, AcademicTerm, Subject, Student, Assessment, GradeRecord, AssessmentType,
+    TimetableEntry, DayOfWeek
 )
 from schemas import (
     UserResponse, UserWithRoleResponse, Token, LoginRequest,
@@ -36,15 +38,17 @@ from schemas import (
     OrganizationProductWithBranchStock,
     ForgotPasswordRequest, ResetPasswordRequest, PasswordResetResponse,
     CustomerCreate, CustomerUpdate, CustomerResponse,
-    CreditTransactionResponse, PaymentCreate, PaymentResponse,
+    CreditTransactionResponse, PaymentCreate, BulkPaymentCreate, PaymentResponse,
     ReminderLogResponse,
     ExpenseCreate, ExpenseUpdate, ExpenseResponse,
     GradeLevelCreate, GradeLevelUpdate, GradeLevelResponse,
     AcademicTermCreate, AcademicTermUpdate, AcademicTermResponse,
     SubjectCreate, SubjectResponse, SubjectUpdate,
     StudentCreate, StudentUpdate, StudentResponse,
+    StudentStatementResponse, StudentFinancialSummary, StatementTransaction,
     AssessmentCreate, AssessmentUpdate, AssessmentResponse,
-    GradeRecordCreate, GradeRecordUpdate, GradeRecordResponse
+    GradeRecordCreate, GradeRecordUpdate, GradeRecordResponse,
+    TimetableEntryCreate, TimetableEntryUpdate, TimetableEntryResponse
 )
 from subscription_middleware import check_branch_subscription_active
 from auth import (
@@ -910,13 +914,21 @@ async def get_categories(
     db: AsyncSession = Depends(get_db),
     active_only: bool = True
 ):
-    """Get all global categories (read-only for tenants)"""
-    query = select(Category)
+    """
+    Get categories available to the tenant.
+    Includes global categories (tenant_id is NULL) and tenant-specific categories.
+    """
+    query = select(Category).where(
+        or_(
+            Category.tenant_id == None,
+            Category.tenant_id == current_tenant.id
+        )
+    )
 
     if active_only:
         query = query.where(Category.is_active == True)
 
-    query = query.order_by(Category.display_order, Category.name)
+    query = query.order_by(Category.tenant_id.desc(), Category.display_order, Category.name)
     result = await db.execute(query)
     categories = result.scalars().all()
 
@@ -952,17 +964,38 @@ async def get_categories(
     return response_categories
 
 
-@app.post("/categories", response_model=CategoryResponse, status_code=status.HTTP_403_FORBIDDEN)
+@app.post("/categories", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
 async def create_category(
     category_data: CategoryCreate,
     current_tenant: Tenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db)
 ):
-    """Categories are now managed by platform admin. Use /api/platform/categories instead."""
-    raise HTTPException(
-        status_code=403,
-        detail="Categories are now managed globally by platform administrators. Contact support to add new categories."
+    """Allow tenants to create their own fee/product categories"""
+    # Check if category with same name already exists for this tenant
+    existing = await db.execute(
+        select(Category).where(
+            Category.tenant_id == current_tenant.id,
+            Category.name == category_data.name
+        )
     )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"Category '{category_data.name}' already exists")
+
+    new_category = Category(
+        **category_data.model_dump(),
+        tenant_id=current_tenant.id
+    )
+    db.add(new_category)
+    await db.commit()
+    await db.refresh(new_category)
+    
+    # Map to response (including computed fields)
+    return {
+        **new_category.__dict__,
+        'product_count': 0,
+        'effective_target_margin': new_category.target_margin if new_category.target_margin is not None else 25.0,
+        'effective_minimum_margin': new_category.minimum_margin if new_category.minimum_margin is not None else 15.0
+    }
 
 
 @app.put("/categories/{category_id}", response_model=CategoryResponse)
@@ -972,11 +1005,38 @@ async def update_category(
     current_tenant: Tenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db)
 ):
-    """Categories are now managed by platform admin. Use /api/platform/categories instead."""
-    raise HTTPException(
-        status_code=403,
-        detail="Categories are now managed globally by platform administrators. Contact support to modify categories."
+    """Update a tenant-specific category"""
+    result = await db.execute(
+        select(Category).where(
+            Category.id == category_id,
+            Category.tenant_id == current_tenant.id
+        )
     )
+    category = result.scalar_one_or_none()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found or you don't have permission to modify it")
+
+    for field, value in category_data.model_dump(exclude_unset=True).items():
+        setattr(category, field, value)
+
+    await db.commit()
+    await db.refresh(category)
+    
+    # Get product count
+    count_result = await db.execute(
+        select(func.count(Product.id)).where(
+            Product.category_id == category.id,
+            Product.tenant_id == current_tenant.id
+        )
+    )
+    product_count = count_result.scalar() or 0
+
+    return {
+        **category.__dict__,
+        'product_count': product_count,
+        'effective_target_margin': category.target_margin if category.target_margin is not None else 25.0,
+        'effective_minimum_margin': category.minimum_margin if category.minimum_margin is not None else 15.0
+    }
 
 
 @app.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -985,11 +1045,25 @@ async def delete_category(
     current_tenant: Tenant = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db)
 ):
-    """Categories are now managed by platform admin. Use /api/platform/categories instead."""
-    raise HTTPException(
-        status_code=403,
-        detail="Categories are now managed globally by platform administrators. Contact support to remove categories."
+    """Delete a tenant-specific category"""
+    result = await db.execute(
+        select(Category).where(
+            Category.id == category_id,
+            Category.tenant_id == current_tenant.id
+        )
     )
+    category = result.scalar_one_or_none()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found or you don't have permission to delete it")
+
+    # Check if category is in use
+    usage = await db.execute(select(Product.id).where(Product.category_id == category_id).limit(1))
+    if usage.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Cannot delete category that is in use by products/fees")
+
+    await db.delete(category)
+    await db.commit()
+    return None
 
 
 # ==================== UNIT ROUTES (Read-Only for Tenants) ====================
@@ -2489,9 +2563,37 @@ async def create_sale(
 
     # Credit payment validation
     credit_customer = None
-    if sale_data.payment_method == "Credit":
+    # Support both "Credit" and school-specific "Arrears" terminology
+    if sale_data.payment_method in ["Credit", "Arrears"]:
+        # If student is selected but no customer_id, try to use student's linked customer
+        if sale_data.student_id and not sale_data.customer_id:
+            result = await db.execute(
+                select(Student).where(
+                    Student.id == sale_data.student_id,
+                    Student.tenant_id == current_tenant.id
+                )
+            )
+            student = result.scalar_one_or_none()
+            if student:
+                if student.customer_id:
+                    sale_data.customer_id = student.customer_id
+                else:
+                    # Lazily create a customer record for the student
+                    new_customer = Customer(
+                        tenant_id=current_tenant.id,
+                        name=f"{student.first_name} {student.last_name} ({student.admission_number})",
+                        phone=student.parent_phone,
+                        email=student.parent_email,
+                        notes=f"Auto-created for student {student.admission_number}"
+                    )
+                    db.add(new_customer)
+                    await db.flush()
+                    student.customer_id = new_customer.id
+                    sale_data.customer_id = new_customer.id
+
         if not sale_data.customer_id:
-            raise HTTPException(status_code=400, detail="customer_id is required for Credit payment")
+            raise HTTPException(status_code=400, detail="customer_id is required for Arrears/Credit payment")
+            
         # Fetch customer scoped to tenant
         result = await db.execute(
             select(Customer).where(
@@ -2502,6 +2604,7 @@ async def create_sale(
         credit_customer = result.scalar_one_or_none()
         if not credit_customer:
             raise HTTPException(status_code=404, detail="Customer not found")
+            
         # Enforce credit limit if set
         if credit_customer.credit_limit is not None:
             if credit_customer.current_balance + total > credit_customer.credit_limit:
@@ -2515,7 +2618,7 @@ async def create_sale(
         tenant_id=current_tenant.id,
         user_id=current_user.id,
         branch_id=sale_branch_id,  # NEW: Track which branch created this sale
-        customer_id=sale_data.customer_id if sale_data.payment_method == "Credit" else None,
+        customer_id=sale_data.customer_id if sale_data.payment_method in ["Credit", "Arrears"] else None,
         student_id=sale_data.student_id,  # LINK TO STUDENT
         customer_name=getattr(sale_data, 'customer_name', None),
         customer_email=getattr(sale_data, 'customer_email', None),
@@ -2596,8 +2699,8 @@ async def create_sale(
         )
         db.add(sale_item)
 
-    # Create CreditTransaction if payment method is Credit
-    if sale_data.payment_method == "Credit" and credit_customer:
+    # Create CreditTransaction if payment method is Credit or Arrears
+    if sale_data.payment_method in ["Credit", "Arrears"] and credit_customer:
         credit_due_date = sale_data.due_date or (date.today() + timedelta(days=30))
         credit_txn = CreditTransaction(
             tenant_id=current_tenant.id,
@@ -2621,7 +2724,8 @@ async def create_sale(
         .options(
             selectinload(Sale.sale_items).selectinload(SaleItem.product).selectinload(Product.category_rel),
             selectinload(Sale.user),
-            selectinload(Sale.branch)
+            selectinload(Sale.branch),
+            selectinload(Sale.student)
         )
         .where(Sale.id == new_sale.id)
     )
@@ -2664,7 +2768,8 @@ async def get_sales(
     ).options(
         selectinload(Sale.sale_items).selectinload(SaleItem.product).selectinload(Product.category_rel),
         selectinload(Sale.user),
-        selectinload(Sale.branch)
+        selectinload(Sale.branch),
+        selectinload(Sale.student)
     ).order_by(desc(Sale.created_at))
 
     result = await db.execute(query)
@@ -2730,7 +2835,8 @@ async def update_sale_customer(
         .options(
             selectinload(Sale.sale_items).selectinload(SaleItem.product).selectinload(Product.category_rel),
             selectinload(Sale.user),
-            selectinload(Sale.branch)
+            selectinload(Sale.branch),
+            selectinload(Sale.student)
         )
         .where(Sale.id == sale_id, Sale.tenant_id == current_tenant.id)
     )
@@ -2769,7 +2875,8 @@ async def send_email_receipt(
         .options(
             selectinload(Sale.sale_items).selectinload(SaleItem.product).selectinload(Product.category_rel),
             selectinload(Sale.user),
-            selectinload(Sale.branch)
+            selectinload(Sale.branch),
+            selectinload(Sale.student)
         )
         .where(Sale.id == sale_id, Sale.tenant_id == current_tenant.id)
     )
@@ -3023,6 +3130,92 @@ async def record_payment(
     await db.commit()
     await db.refresh(new_payment)
     return new_payment
+
+
+@app.post("/customers/{customer_id}/bulk-payment", response_model=List[PaymentResponse])
+async def record_bulk_payment(
+    customer_id: int,
+    payment_data: BulkPaymentCreate,
+    current_tenant: Tenant = Depends(check_branch_subscription_active),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Record a bulk payment against all outstanding credit transactions for a customer.
+    Allocates the payment amount to the oldest transactions first.
+    """
+    # 1. Verify customer
+    result = await db.execute(
+        select(Customer).where(
+            Customer.id == customer_id,
+            Customer.tenant_id == current_tenant.id
+        )
+    )
+    customer = result.scalar_one_or_none()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # 2. Get all unpaid credit transactions, oldest first
+    result = await db.execute(
+        select(CreditTransaction)
+        .where(
+            CreditTransaction.customer_id == customer_id,
+            CreditTransaction.tenant_id == current_tenant.id,
+            CreditTransaction.status != CreditTransactionStatus.PAID
+        )
+        .order_by(CreditTransaction.due_date.asc(), CreditTransaction.created_at.asc())
+    )
+    unpaid_txns = result.scalars().all()
+
+    if not unpaid_txns:
+        raise HTTPException(status_code=400, detail="No outstanding credit transactions found for this customer")
+
+    remaining_amount = payment_data.amount
+    recorded_payments = []
+
+    # 3. Allocate payment to transactions
+    for txn in unpaid_txns:
+        if remaining_amount <= 0:
+            break
+
+        allocation = min(remaining_amount, txn.amount_due)
+        
+        # Create individual payment record
+        new_payment = Payment(
+            tenant_id=current_tenant.id,
+            customer_id=customer_id,
+            credit_transaction_id=txn.id,
+            amount=allocation,
+            payment_method=payment_data.payment_method,
+            payment_date=payment_data.payment_date,
+            notes=f"Bulk Payment: {payment_data.notes or ''}".strip()
+        )
+        db.add(new_payment)
+        recorded_payments.append(new_payment)
+
+        # Update transaction
+        txn.amount_paid += allocation
+        txn.amount_due -= allocation
+        if txn.amount_due <= 0:
+            txn.status = CreditTransactionStatus.PAID
+            txn.amount_due = 0.0
+        else:
+            txn.status = CreditTransactionStatus.PARTIALLY_PAID
+
+        remaining_amount -= allocation
+
+    # 4. Update customer balance
+    customer.current_balance -= payment_data.amount
+    if customer.current_balance < 0:
+        customer.current_balance = 0.0
+
+    await db.commit()
+    
+    # Refresh all recorded payments
+    for p in recorded_payments:
+        await db.refresh(p)
+        
+    return recorded_payments
 
 
 @app.get("/customers/{customer_id}/payments", response_model=List[PaymentResponse])
@@ -3808,7 +4001,8 @@ async def get_price_variance_report(
         .options(
             selectinload(Sale.sale_items).selectinload(SaleItem.product).selectinload(Product.category_rel),
             selectinload(Sale.user),
-            selectinload(Sale.branch)
+            selectinload(Sale.branch),
+            selectinload(Sale.student)
         )
     )
     result = await db.execute(sales_query)
@@ -4327,6 +4521,155 @@ async def create_student(
     return StudentResponse.model_validate(new_student)
 
 
+@app.get("/students/{student_id}/statement", response_model=StudentStatementResponse)
+async def get_student_statement(
+    student_id: int,
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get detailed financial statement for a student.
+    Includes all fee billings (Sales) and all payments made.
+    """
+    # 1. Fetch student with customer link
+    result = await db.execute(
+        select(Student)
+        .options(selectinload(Student.customer))
+        .where(Student.id == student_id, Student.tenant_id == current_tenant.id)
+    )
+    student = result.scalar_one_or_none()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    # 2. Fetch all sales (Fees) linked to this student
+    sales_result = await db.execute(
+        select(Sale)
+        .where(Sale.student_id == student_id, Sale.tenant_id == current_tenant.id)
+        .order_by(Sale.created_at.asc())
+    )
+    sales = sales_result.scalars().all()
+
+    # 3. Fetch all payments linked to the student's customer account
+    payments = []
+    if student.customer_id:
+        payments_result = await db.execute(
+            select(Payment)
+            .where(Payment.customer_id == student.customer_id, Payment.tenant_id == current_tenant.id)
+            .order_by(Payment.payment_date.asc())
+        )
+        payments = payments_result.scalars().all()
+
+    # 4. Combine and sort transactions
+    all_txns = []
+    
+    # Add Fees (Sales)
+    for sale in sales:
+        all_txns.append({
+            "date": sale.created_at,
+            "description": f"Fee Billing: {sale.notes}" if sale.notes else "Fee Billing",
+            "reference": f"Sale #{sale.id}",
+            "type": "Fee",
+            "amount": sale.total,
+            "sort_date": sale.created_at
+        })
+        
+    # Add Payments
+    for pmt in payments:
+        # Payment date is 'date' object, convert to datetime for sorting
+        pmt_dt = datetime.combine(pmt.payment_date, datetime.min.time())
+        all_txns.append({
+            "date": pmt_dt,
+            "description": f"Payment: {pmt.payment_method} {f'({pmt.notes})' if pmt.notes else ''}",
+            "reference": f"Pmt #{pmt.id}",
+            "type": "Payment",
+            "amount": pmt.amount,
+            "sort_date": pmt_dt
+        })
+
+    # Sort everything by date
+    all_txns.sort(key=lambda x: x["sort_date"])
+
+    # 5. Calculate running balance
+    running_balance = 0.0
+    final_txns = []
+    
+    for txn in all_txns:
+        if txn["type"] == "Fee":
+            running_balance += txn["amount"]
+        else:
+            running_balance -= txn["amount"]
+            
+        final_txns.append(StatementTransaction(
+            date=txn["date"],
+            description=txn["description"],
+            reference=txn["reference"],
+            type=txn["type"],
+            amount=txn["amount"],
+            balance=running_balance
+        ))
+
+    return StudentStatementResponse(
+        student_id=student.id,
+        student_name=f"{student.first_name} {student.last_name}",
+        admission_number=student.admission_number,
+        current_balance=student.customer.current_balance if student.customer else 0.0,
+        currency=current_tenant.currency,
+        generated_at=datetime.utcnow(),
+        transactions=final_txns
+    )
+
+
+@app.get("/students/{student_id}/statement/pdf")
+async def get_student_statement_pdf(
+    student_id: int,
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """Generate and download student financial statement as PDF"""
+    # Use the same logic as the JSON endpoint but return a PDF
+    statement = await get_student_statement(student_id, current_tenant, db)
+    
+    # Get student info
+    result = await db.execute(select(Student).where(Student.id == student_id))
+    student = result.scalar_one()
+
+    # Construct logo URL
+    from config import settings as app_settings
+    logo_url = ""
+    if current_tenant.logo_url and app_settings.R2_PUBLIC_URL:
+        logo_url = f"{app_settings.R2_PUBLIC_URL}/{current_tenant.logo_url}"
+
+    # Generate PDF
+    from pdf_service import generate_statement_pdf
+    pdf_bytes = generate_statement_pdf(
+        student_name=statement.student_name,
+        admission_number=statement.admission_number,
+        tenant_name=current_tenant.name,
+        tenant_address=current_tenant.address or "",
+        tenant_phone=current_tenant.phone or "",
+        logo_url=logo_url,
+        transactions=[{
+            "date": t.date,
+            "description": t.description,
+            "reference": t.reference,
+            "type": t.type,
+            "amount": t.amount,
+            "balance": t.balance
+        } for t in statement.transactions],
+        current_balance=statement.current_balance,
+        currency=statement.currency,
+        generated_at=statement.generated_at.strftime("%B %d, %Y %I:%M %p")
+    )
+
+    filename = f"Statement_{statement.admission_number}_{date.today().isoformat()}.pdf"
+    
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
 # --- Subjects ---
 
 @app.get("/subjects", response_model=List[SubjectResponse])
@@ -4433,6 +4776,163 @@ async def enter_grade(
     if assessment: resp.assessment_name = assessment.name
     
     return resp
+
+
+# --- Timetable ---
+
+@app.get("/timetable/me", response_model=List[TimetableEntryResponse])
+async def get_my_timetable(
+    current_user: User = Depends(get_current_active_user),
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """Teachers can ONLY see their own classes."""
+    query = (
+        select(TimetableEntry)
+        .options(
+            joinedload(TimetableEntry.grade_level),
+            joinedload(TimetableEntry.subject),
+            joinedload(TimetableEntry.teacher)
+        )
+        .where(
+            TimetableEntry.tenant_id == current_tenant.id,
+            TimetableEntry.teacher_id == current_user.id
+        )
+    )
+    result = await db.execute(query.order_by(TimetableEntry.day_of_week, TimetableEntry.start_time))
+    entries = result.scalars().all()
+    
+    responses = []
+    for e in entries:
+        resp = TimetableEntryResponse.model_validate(e)
+        resp.grade_level_name = e.grade_level.name if e.grade_level else None
+        resp.subject_name = e.subject.name if e.subject else None
+        resp.teacher_name = e.teacher.full_name if e.teacher else None
+        responses.append(resp)
+        
+    return responses
+
+@app.get("/timetable", response_model=List[TimetableEntryResponse])
+async def get_timetable(
+    grade_level_id: Optional[int] = Query(None),
+    teacher_id: Optional[int] = Query(None),
+    day: Optional[DayOfWeek] = Query(None),
+    current_tenant: Tenant = Depends(get_current_tenant),
+    db: AsyncSession = Depends(get_db)
+):
+    """List timetable entries with optional filters"""
+    query = (
+        select(TimetableEntry)
+        .options(
+            joinedload(TimetableEntry.grade_level),
+            joinedload(TimetableEntry.subject),
+            joinedload(TimetableEntry.teacher)
+        )
+        .where(TimetableEntry.tenant_id == current_tenant.id)
+    )
+    
+    if grade_level_id:
+        query = query.where(TimetableEntry.grade_level_id == grade_level_id)
+    if teacher_id:
+        query = query.where(TimetableEntry.teacher_id == teacher_id)
+    if day:
+        query = query.where(TimetableEntry.day_of_week == day)
+        
+    result = await db.execute(query.order_by(TimetableEntry.day_of_week, TimetableEntry.start_time))
+    entries = result.scalars().all()
+    
+    responses = []
+    for e in entries:
+        resp = TimetableEntryResponse.model_validate(e)
+        resp.grade_level_name = e.grade_level.name if e.grade_level else None
+        resp.subject_name = e.subject.name if e.subject else None
+        resp.teacher_name = e.teacher.full_name if e.teacher else None
+        responses.append(resp)
+        
+    return responses
+
+@app.post("/timetable", response_model=TimetableEntryResponse)
+async def create_timetable_entry(
+    entry_data: TimetableEntryCreate,
+    current_tenant: Tenant = Depends(require_permission(Permission.MANAGE_TIMETABLE)),
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a new timetable entry"""
+    new_entry = TimetableEntry(**entry_data.model_dump(), tenant_id=current_tenant.id)
+    db.add(new_entry)
+    await db.commit()
+    await db.refresh(new_entry)
+    
+    # Enrich response
+    resp = TimetableEntryResponse.model_validate(new_entry)
+    gl = await db.get(GradeLevel, new_entry.grade_level_id)
+    if gl: resp.grade_level_name = gl.name
+    sub = await db.get(Subject, new_entry.subject_id)
+    if sub: resp.subject_name = sub.name
+    if new_entry.teacher_id:
+        teacher = await db.get(User, new_entry.teacher_id)
+        if teacher: resp.teacher_name = teacher.full_name
+        
+    return resp
+
+@app.put("/timetable/{entry_id}", response_model=TimetableEntryResponse)
+async def update_timetable_entry(
+    entry_id: int,
+    entry_data: TimetableEntryUpdate,
+    current_tenant: Tenant = Depends(require_permission(Permission.MANAGE_TIMETABLE)),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update a timetable entry"""
+    result = await db.execute(
+        select(TimetableEntry).where(
+            TimetableEntry.id == entry_id, 
+            TimetableEntry.tenant_id == current_tenant.id
+        )
+    )
+    entry = result.scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+        
+    update_data = entry_data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(entry, key, value)
+        
+    entry.updated_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(entry)
+    
+    # Enrich response
+    resp = TimetableEntryResponse.model_validate(entry)
+    gl = await db.get(GradeLevel, entry.grade_level_id)
+    if gl: resp.grade_level_name = gl.name
+    sub = await db.get(Subject, entry.subject_id)
+    if sub: resp.subject_name = sub.name
+    if entry.teacher_id:
+        teacher = await db.get(User, entry.teacher_id)
+        if teacher: resp.teacher_name = teacher.full_name
+        
+    return resp
+
+@app.delete("/timetable/{entry_id}")
+async def delete_timetable_entry(
+    entry_id: int,
+    current_tenant: Tenant = Depends(require_permission(Permission.MANAGE_TIMETABLE)),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete a timetable entry"""
+    result = await db.execute(
+        select(TimetableEntry).where(
+            TimetableEntry.id == entry_id, 
+            TimetableEntry.tenant_id == current_tenant.id
+        )
+    )
+    entry = result.scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+        
+    await db.delete(entry)
+    await db.commit()
+    return {"message": "Entry deleted successfully"}
 
 
 # ==================== HEALTH CHECK ====================

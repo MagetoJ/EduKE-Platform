@@ -1,19 +1,22 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, ShoppingCart, Settings, UserCircle, MinusCircle, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingCart, Settings, UserCircle, MinusCircle, BookOpen, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/lib/permissions';
 
 export function MobileNav() {
   const location = useLocation();
+  const { user } = useAuth();
   const permissions = usePermissions();
 
   const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permissions: [Permission.VIEW_DASHBOARD] },
+    { path: '/dashboard', label: user?.role === 'staff' ? 'Teacher' : 'Dashboard', icon: LayoutDashboard, permissions: [Permission.VIEW_DASHBOARD] },
     { path: '/inventory', label: 'Courses', icon: Package, permissions: [Permission.MANAGE_INVENTORY] },
     { path: '/pos', label: 'Fees', icon: ShoppingCart, permissions: [Permission.MANAGE_POS] },
-    { path: '/customers', label: 'Students', icon: UserCircle, permissions: [Permission.MANAGE_POS] },
-    { path: '/gradebook', label: 'Gradebook', icon: BookOpen, permissions: [Permission.MANAGE_POS] },
+    { path: '/customers', label: 'Students', icon: UserCircle, permissions: [Permission.VIEW_STUDENT_PROFILES] },
+    { path: '/gradebook', label: 'Grades', icon: BookOpen, permissions: [Permission.ENTER_GRADES] },
+    { path: '/timetable', label: 'Schedule', icon: Calendar, permissions: [Permission.MANAGE_TIMETABLE] },
     { path: '/expenses', label: 'Expenses', icon: MinusCircle, permissions: [Permission.VIEW_REPORTS] },
     { path: '/settings', label: 'Settings', icon: Settings, permissions: [Permission.MANAGE_SETTINGS, Permission.VIEW_PRINTER_SETTINGS] },
   ].filter(item => item.permissions.some(p => permissions.hasPermission(p)));

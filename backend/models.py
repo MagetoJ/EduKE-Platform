@@ -21,6 +21,12 @@ class Permission(str, enum.Enum):
     MANAGE_USERS = "manage_users"
     MANAGE_SETTINGS = "manage_settings"
     MANAGE_BRANCHES = "manage_branches"
+    
+    # School Management Permissions
+    MANAGE_TIMETABLE = "manage_timetable"
+    ENTER_GRADES = "enter_grades"
+    VIEW_STUDENT_PROFILES = "view_student_profiles"
+    MANAGE_CURRICULUM = "manage_curriculum"
 
 
 class OrderStatus(str, enum.Enum):
@@ -216,12 +222,13 @@ class User(Base):
 
 
 class Category(Base):
-    """Product category model - global (super admin managed)"""
+    """Product category model - global (super admin) or tenant-specific"""
     __tablename__ = "categories"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete='CASCADE'), nullable=True, index=True)
 
-    name = Column(String(50), nullable=False, unique=True)
+    name = Column(String(50), nullable=False)
     display_order = Column(Integer, default=0, nullable=False)
     icon = Column(String(50))  # Icon name (e.g., "laptop", "coffee", "box")
     color = Column(String(20))  # Color code or name (e.g., "#3B82F6", "blue-500")
@@ -239,8 +246,10 @@ class Category(Base):
 
     # Indexes for performance
     __table_args__ = (
+        UniqueConstraint('tenant_id', 'name', name='uq_tenant_category_name'),
         Index('idx_categories_active', 'is_active'),
         Index('idx_categories_display_order', 'display_order'),
+        Index('idx_categories_tenant', 'tenant_id'),
     )
 
     def __repr__(self):
@@ -397,6 +406,7 @@ class Sale(Base):
     user = relationship("User", back_populates="sales")
     branch = relationship("Tenant", foreign_keys=[branch_id])  # NEW: Link to branch tenant
     customer = relationship("Customer", back_populates="sales")
+    student = relationship("Student")
     credit_transaction = relationship("CreditTransaction", back_populates="sale", uselist=False)
     sale_items = relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan")
 
@@ -405,6 +415,12 @@ class Sale(Base):
         Index('idx_sales_tenant_created', 'tenant_id', 'created_at'),
         Index('idx_sales_tenant_branch', 'tenant_id', 'branch_id'),  # NEW: Index for branch-filtered queries
     )
+
+    @property
+    def student_name(self):
+        if self.student:
+            return f"{self.student.first_name} {self.student.last_name}"
+        return self.customer_name
 
     def __repr__(self):
         return f"<Sale {self.id} (Tenant: {self.tenant_id})>"
@@ -1088,3 +1104,48 @@ class GradeRecord(Base):
 
     def __repr__(self):
         return f"<GradeRecord Student:{self.student_id} Marks:{self.marks_obtained}>"
+
+
+class DayOfWeek(str, enum.Enum):
+    MONDAY = "Monday"
+    TUESDAY = "Tuesday"
+    WEDNESDAY = "Wednesday"
+    THURSDAY = "Thursday"
+    FRIDAY = "Friday"
+    SATURDAY = "Saturday"
+    SUNDAY = "Sunday"
+
+
+class TimetableEntry(Base):
+    """Represents a schedule entry for a class"""
+    __tablename__ = "timetable_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete='CASCADE'), nullable=False, index=True)
+    
+    grade_level_id = Column(Integer, ForeignKey("grade_levels.id", ondelete='CASCADE'), nullable=False)
+    subject_id = Column(Integer, ForeignKey("subjects.id", ondelete='CASCADE'), nullable=False)
+    teacher_id = Column(Integer, ForeignKey("users.id", ondelete='SET NULL'), nullable=True)
+    
+    day_of_week = Column(SQLEnum(DayOfWeek), nullable=False)
+    start_time = Column(String(5), nullable=False) # e.g., "08:00"
+    end_time = Column(String(5), nullable=False) # e.g., "09:00"
+    room = Column(String(50), nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    tenant = relationship("Tenant")
+    grade_level = relationship("GradeLevel")
+    subject = relationship("Subject")
+    teacher = relationship("User")
+
+    __table_args__ = (
+        Index('idx_timetable_tenant', 'tenant_id'),
+        Index('idx_timetable_grade', 'grade_level_id'),
+        Index('idx_timetable_teacher', 'teacher_id'),
+    )
+
+    def __repr__(self):
+        return f"<TimetableEntry {self.day_of_week} {self.start_time}-{self.end_time} Grade:{self.grade_level_id}>"

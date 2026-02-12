@@ -12,7 +12,7 @@ import {
   Users, DollarSign, TrendingUp, TrendingDown, Package,
   CheckSquare, Building2, Download, Calendar, Package2, ShoppingCart,
   History, ChevronDown, ChevronUp, Mail, MessageCircle,
-  Edit, Save, X, CheckCircle, AlertCircle
+  Edit, Save, X, CheckCircle, AlertCircle, Printer
 } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import DatePicker from 'react-datepicker';
@@ -23,6 +23,9 @@ import * as XLSX from 'xlsx';
 import { usePermissions } from '@/hooks/usePermissions';
 import { BranchSelector } from '@/components/BranchSelector';
 import { generateReceiptText, generateWhatsAppLink } from '@/lib/receiptText';
+import { ReceiptOptionsModal } from '@/components/ReceiptOptionsModal';
+import { printerService } from '@/lib/printerService';
+import { Receipt } from '@/components/Receipt';
 
 type DateRange = 'today' | '7days' | '30days' | '90days' | '180days' | 'year' | 'custom';
 
@@ -124,6 +127,7 @@ export function Reports() {
   const [sendingEmail, setSendingEmail] = useState<number | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [printingSale, setPrintingSale] = useState<Sale | null>(null);
 
   // Tab definitions
   const reportsTabs = [
@@ -414,6 +418,63 @@ export function Reports() {
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error: any) {
       setErrorMessage(error.message || 'Failed to send WhatsApp receipt');
+      setTimeout(() => setErrorMessage(''), 5000);
+    }
+  };
+
+  const handlePrintSummary = async () => {
+    if (!tenant) return;
+    
+    let text = `${tenant.name}\n`;
+    const title = reportsTabs.find(t => t.id === activeTab)?.label || 'Report';
+    text += `${title.toUpperCase()}\n`;
+    
+    const dateRangeText = dateRange === 'custom' && customStartDate && customEndDate
+      ? `${customStartDate.toLocaleDateString()} - ${customEndDate.toLocaleDateString()}`
+      : selectedOption.label;
+    text += `Range: ${dateRangeText}\n`;
+    text += `Date: ${new Date().toLocaleString()}\n`;
+    text += `--------------------------------\n`;
+
+    if (activeTab === 'financial' && financialReport) {
+      const totalSalesCount = financialReport.revenue_by_date.reduce((sum, item) => sum + item.orders, 0);
+      text += `Total Revenue: ${formatCurrency(financialReport.total_revenue)}\n`;
+      text += `Total Profit: ${formatCurrency(financialReport.total_profit)}\n`;
+      text += `Total Sales: ${totalSalesCount}\n`;
+      text += `--------------------------------\n`;
+      text += `TOP PRODUCTS:\n`;
+      financialReport.top_selling_products.slice(0, 10).forEach(p => {
+        text += `${p.name.substring(0, 20)}\n`;
+        text += `  Qty: ${p.quantity} | Rev: ${formatCurrency(p.revenue)}\n`;
+      });
+    } else if (activeTab === 'sales' && salesSummary) {
+      text += `Total Revenue: ${formatCurrency(salesSummary.total_revenue)}\n`;
+      text += `Total Sales: ${salesSummary.total_sales}\n`;
+      text += `--------------------------------\n`;
+      text += `RECENT TRANSACTIONS:\n`;
+      salesHistory.slice(0, 10).forEach(s => {
+        text += `${formatDate(s.created_at)}\n`;
+        text += `  ${s.customer_name || 'Walk-in'}: ${formatCurrency(s.total)}\n`;
+      });
+    } else {
+      text += `Summary printing not supported\n`;
+      text += `for this tab yet.\n`;
+    }
+
+    text += `--------------------------------\n`;
+    text += `Powered by mBiz\n`;
+
+    try {
+      const result = await printerService.printSummary(text);
+      if (result.success) {
+        setSuccessMessage(result.message);
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        // Fallback to browser print if no thermal printer
+        window.print();
+      }
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Failed to print');
       setTimeout(() => setErrorMessage(''), 5000);
     }
   };
@@ -774,8 +835,18 @@ export function Reports() {
               />
             )}
 
-            {/* Export Buttons */}
+            {/* Export & Print Buttons */}
             <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrintSummary}
+              disabled={isCurrentTabLoading()}
+              title="Print current report summary"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Print
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -1979,6 +2050,7 @@ export function Reports() {
                                     <div className="flex gap-2 mt-3">
                                       <Button size="sm" disabled={!sale.customer_email || sendingEmail === sale.id} onClick={() => handleSendEmail(sale.id)} className="flex items-center gap-1">{sale.email_sent && <CheckCircle className="h-3 w-3 text-green-600" />}<Mail className="h-3 w-3" />{sendingEmail === sale.id ? 'Sending...' : 'Send Email'}</Button>
                                       <Button size="sm" variant="outline" disabled={!sale.customer_phone} onClick={() => handleSendWhatsApp(sale)} className="flex items-center gap-1">{sale.whatsapp_sent && <CheckCircle className="h-3 w-3 text-green-600" />}<MessageCircle className="h-3 w-3" />WhatsApp</Button>
+                                      <Button size="sm" variant="outline" onClick={() => setPrintingSale(sale)} className="flex items-center gap-1"><Printer className="h-3 w-3" />Print Receipt</Button>
                                     </div>
                                     {(sale.email_sent || sale.whatsapp_sent) && (<div className="mt-2 flex gap-2">{sale.email_sent && <Badge variant="success" className="text-xs"><CheckCircle className="h-3 w-3 mr-1" />Email Sent</Badge>}{sale.whatsapp_sent && <Badge variant="success" className="text-xs"><CheckCircle className="h-3 w-3 mr-1" />WhatsApp Sent</Badge>}</div>)}
                                   </div>
@@ -2043,6 +2115,7 @@ export function Reports() {
                           <div className="flex gap-2 flex-wrap">
                             <Button size="sm" disabled={!sale.customer_email || sendingEmail === sale.id} onClick={() => handleSendEmail(sale.id)} className="flex-1">{sale.email_sent && <CheckCircle className="h-3 w-3 mr-1 text-green-600" />}<Mail className="h-3 w-3 mr-1" />{sendingEmail === sale.id ? 'Sending...' : 'Email'}</Button>
                             <Button size="sm" variant="outline" disabled={!sale.customer_phone} onClick={() => handleSendWhatsApp(sale)} className="flex-1">{sale.whatsapp_sent && <CheckCircle className="h-3 w-3 mr-1 text-green-600" />}<MessageCircle className="h-3 w-3 mr-1" />WhatsApp</Button>
+                            <Button size="sm" variant="outline" onClick={() => setPrintingSale(sale)} className="flex-1"><Printer className="h-3 w-3 mr-1" />Print</Button>
                           </div>
                         </div>
                       </div>
@@ -2056,6 +2129,20 @@ export function Reports() {
         )}
       </TabPanel>
 
+      {/* Receipt Options Modal */}
+      {printingSale && tenant && (
+        <ReceiptOptionsModal
+          isOpen={!!printingSale}
+          onClose={() => setPrintingSale(null)}
+          sale={printingSale}
+          tenant={tenant}
+        />
+      )}
+
+      {/* Receipt - Hidden, for browser print only */}
+      <div className="hidden print:block">
+        {printingSale && <Receipt sale={printingSale} />}
+      </div>
     </div>
   );
 }

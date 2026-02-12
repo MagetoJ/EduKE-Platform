@@ -91,6 +91,7 @@ export default defineConfig({
         ],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/],
+        navigateFallbackAllowlist: [/^(?!\/__).*/],
       },
       devOptions: {
         enabled: true,

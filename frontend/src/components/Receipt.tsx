@@ -72,7 +72,11 @@ export function Receipt({ sale }: ReceiptProps) {
         <div>Receipt #: {receiptNumber}</div>
         <div>Date: {formattedDate}</div>
         <div>Cashier: {sale.user.full_name}</div>
-        {sale.customer_name && <div>Customer: {sale.customer_name}</div>}
+        {sale.student_name ? (
+          <div>Student: {sale.student_name}</div>
+        ) : sale.customer_name ? (
+          <div>Customer: {sale.customer_name}</div>
+        ) : null}
       </div>
 
       {/* Items */}
@@ -143,8 +147,8 @@ export function Receipt({ sale }: ReceiptProps) {
         fontSize: '11px',
         marginTop: '10px'
       }}>
-        <div>Thank you for your business!</div>
-        <div style={{ marginTop: '5px' }}>Powered by mBiz</div>
+        <div>Thank you for choosing {tenant.name}!</div>
+        <div style={{ marginTop: '5px' }}>Powered by EduKE</div>
       </div>
 
       {/* Print-specific styles */}

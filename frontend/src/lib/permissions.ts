@@ -14,6 +14,12 @@ export enum Permission {
   MANAGE_SETTINGS = 'manage_settings',
   MANAGE_BRANCHES = 'manage_branches',
   VIEW_PRINTER_SETTINGS = 'view_printer_settings',
+
+  // School Management Permissions
+  MANAGE_TIMETABLE = 'manage_timetable',
+  ENTER_GRADES = 'enter_grades',
+  VIEW_STUDENT_PROFILES = 'view_student_profiles',
+  MANAGE_CURRICULUM = 'manage_curriculum',
 }
 
 /**
@@ -42,6 +48,10 @@ const ROLE_PERMISSIONS: Record<RoleType, Permission[]> = {
     Permission.MANAGE_USERS,
     Permission.MANAGE_SETTINGS,
     Permission.MANAGE_BRANCHES,
+    Permission.MANAGE_TIMETABLE,
+    Permission.ENTER_GRADES,
+    Permission.VIEW_STUDENT_PROFILES,
+    Permission.MANAGE_CURRICULUM,
   ],
   branch_admin: [
     Permission.VIEW_DASHBOARD,
@@ -50,12 +60,17 @@ const ROLE_PERMISSIONS: Record<RoleType, Permission[]> = {
     Permission.VIEW_SALES_HISTORY,
     Permission.MANAGE_INVENTORY,
     Permission.MANAGE_USERS,
+    Permission.MANAGE_TIMETABLE,
+    Permission.ENTER_GRADES,
+    Permission.VIEW_STUDENT_PROFILES,
   ],
   staff: [
-    Permission.MANAGE_POS,
+    Permission.VIEW_DASHBOARD,
     Permission.VIEW_SALES_HISTORY,
-    Permission.MANAGE_INVENTORY,
     Permission.VIEW_PRINTER_SETTINGS,
+    Permission.MANAGE_TIMETABLE,
+    Permission.ENTER_GRADES,
+    Permission.VIEW_STUDENT_PROFILES,
   ],
 };
 

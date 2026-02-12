@@ -8,6 +8,7 @@ import { Register } from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import { Dashboard } from './pages/Dashboard';
+import { TeacherDashboard } from './pages/TeacherDashboard';
 import { Inventory } from './pages/Inventory';
 import Settings from './pages/Settings';
 import Users from './pages/Users';
@@ -16,6 +17,7 @@ import { Reports } from './pages/Reports';
 import { SalesHistory } from './pages/SalesHistory';
 import { Expenses } from './pages/Expenses';
 import { Gradebook } from './pages/Gradebook';
+import { Timetable } from './pages/Timetable';
 import Customers from './pages/Customers';
 import OrganizationProducts from './pages/OrganizationProducts';
 import SuperAdminLogin from './pages/SuperAdminLogin';
@@ -52,9 +54,9 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" />;
   }
 
-  // Redirect staff to reports
+  // ONLY allow admin role
   if (user.role !== 'admin') {
-    return <Navigate to="/reports" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Layout>{children}</Layout>;
@@ -79,17 +81,17 @@ function AppRoutes() {
       <Route
         path="/dashboard"
         element={
-          <AdminRoute>
-            <Dashboard />
-          </AdminRoute>
+          <PrivateRoute>
+            {user?.role === 'staff' ? <TeacherDashboard /> : <Dashboard />}
+          </PrivateRoute>
         }
       />
       <Route
         path="/inventory"
         element={
-          <PrivateRoute>
+          <AdminRoute>
             <Inventory />
-          </PrivateRoute>
+          </AdminRoute>
         }
       />
       <Route
@@ -111,9 +113,9 @@ function AppRoutes() {
       <Route
         path="/pos"
         element={
-          <PrivateRoute>
+          <AdminRoute>
             <POS />
-          </PrivateRoute>
+          </AdminRoute>
         }
       />
       <Route
@@ -131,17 +133,17 @@ function AppRoutes() {
       <Route
         path="/sales-history"
         element={
-          <PrivateRoute>
+          <AdminRoute>
             <SalesHistory />
-          </PrivateRoute>
+          </AdminRoute>
         }
       />
       <Route
         path="/reports"
         element={
-          <PrivateRoute>
+          <AdminRoute>
             <Reports />
-          </PrivateRoute>
+          </AdminRoute>
         }
       />
       <Route
@@ -161,6 +163,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/timetable"
+        element={
+          <PrivateRoute>
+            <Timetable />
+          </PrivateRoute>
+        }
+      />
+      <Route
         path="/organization/products"
         element={
           <AdminRoute>
@@ -173,7 +183,7 @@ function AppRoutes() {
         element={
           user?.is_super_admin ? (
             <Navigate to="/admin" replace />
-          ) : user?.role === 'admin' ? (
+          ) : (user?.role === 'admin' || user?.role === 'staff') ? (
             <Navigate to="/dashboard" replace />
           ) : (
             <Navigate to="/reports" replace />

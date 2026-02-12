@@ -4,7 +4,7 @@ import { api, Customer, CustomerCreate, CreditTransactionResponse, PaymentCreate
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Search, Plus, X, User, CreditCard } from 'lucide-react';
+import { Search, Plus, X, User, CreditCard, Download, CheckCircle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 export default function Customers() {
@@ -20,12 +20,14 @@ export default function Customers() {
   const [payments, setPayments] = useState<PaymentResponse[]>([]);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Create form state
   const [createForm, setCreateForm] = useState<CustomerCreate>({ name: '' });
 
   // Payment form state
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [isBulkPayment, setIsBulkPayment] = useState(false);
   const [paymentForm, setPaymentForm] = useState<PaymentCreate>({
     credit_transaction_id: 0,
     amount: 0,
@@ -85,7 +87,17 @@ export default function Customers() {
   const handleRecordPayment = async () => {
     if (!token || !selectedCustomer) return;
     try {
-      await api.recordPayment(token, selectedCustomer.id, paymentForm);
+      if (isBulkPayment) {
+        await api.recordBulkPayment(token, selectedCustomer.id, {
+          amount: paymentForm.amount,
+          payment_method: paymentForm.payment_method,
+          payment_date: paymentForm.payment_date,
+          notes: paymentForm.notes
+        });
+      } else {
+        await api.recordPayment(token, selectedCustomer.id, paymentForm);
+      }
+      
       setShowPaymentForm(false);
       setPaymentForm({ credit_transaction_id: 0, amount: 0, payment_method: 'Cash', payment_date: new Date().toISOString().split('T')[0] });
       setSuccessMessage('Payment recorded successfully');
@@ -103,6 +115,43 @@ export default function Customers() {
       setSelectedCustomer(updated);
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to record payment');
+    }
+  };
+
+  const handleDownloadStatement = async () => {
+    if (!token || !selectedCustomer) return;
+    
+    try {
+      setIsDownloading(true);
+      // We need to find the student_id for this customer
+      // Since we don't have a direct link in the UI state yet, 
+      // we'll try to find it from the backend if possible, or assume customer_id works for now 
+      // if it's a 1:1 mapping. 
+      // Actually, my new API uses student_id.
+      
+      // Let's search for students by this customer's name/admission if available
+      const studentsData = await api.getStudents(token, undefined, true, selectedCustomer.name);
+      const student = studentsData.find((s: any) => s.customer_id === selectedCustomer.id) || studentsData[0];
+      
+      if (!student) {
+        setErrorMessage('Could not find student profile for this customer');
+        return;
+      }
+
+      const blob = await api.getStudentStatementPdf(token, student.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Statement_${student.admission_number || selectedCustomer.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err: any) {
+      console.error('Failed to download statement:', err);
+      setErrorMessage('Failed to download statement');
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -304,7 +353,7 @@ export default function Customers() {
             <CardContent className="space-y-4">
               {/* Balance Summary */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-50 rounded-lg p-3 text-center">
+                <div className="bg-gray-50 rounded-lg p-3 text-center border-2 border-transparent">
                   <p className="text-xs text-gray-500">Outstanding Balance</p>
                   <p className={`font-bold text-lg ${selectedCustomer.current_balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {formatCurrency(selectedCustomer.current_balance)}
@@ -316,6 +365,36 @@ export default function Customers() {
                     {selectedCustomer.credit_limit ? formatCurrency(selectedCustomer.credit_limit) : 'No limit'}
                   </p>
                 </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                {selectedCustomer.current_balance > 0 && (
+                  <Button 
+                    className="flex-1 bg-primary-600 hover:bg-primary-700" 
+                    onClick={() => {
+                      setIsBulkPayment(true);
+                      setPaymentForm({
+                        ...paymentForm,
+                        amount: selectedCustomer.current_balance,
+                        credit_transaction_id: 0
+                      });
+                      setShowPaymentForm(true);
+                    }}
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Clear Total Debt
+                  </Button>
+                )}
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={handleDownloadStatement}
+                  disabled={isDownloading}
+                >
+                  <Download className={`w-4 h-4 mr-2 ${isDownloading ? 'animate-bounce' : ''}`} />
+                  {isDownloading ? 'Generating...' : 'Statement'}
+                </Button>
               </div>
 
               {/* Tabs */}
@@ -367,6 +446,7 @@ export default function Customers() {
                             className="mt-2 w-full"
                             onClick={(e) => {
                               e.stopPropagation();
+                              setIsBulkPayment(false);
                               setPaymentForm({ ...paymentForm, credit_transaction_id: txn.id, amount: txn.amount_due });
                               setShowPaymentForm(true);
                             }}
@@ -411,7 +491,7 @@ export default function Customers() {
                   <Card className="w-full max-w-md" onClick={e => e.stopPropagation()}>
                     <CardHeader>
                       <div className="flex justify-between items-center">
-                        <CardTitle>Record Payment</CardTitle>
+                        <CardTitle>{isBulkPayment ? 'Clear Total Debt' : 'Record Payment'}</CardTitle>
                         <button onClick={() => setShowPaymentForm(false)} className="text-gray-400 hover:text-gray-600">
                           <X className="w-5 h-5" />
                         </button>
@@ -460,7 +540,7 @@ export default function Customers() {
                       </div>
                       <div className="flex gap-3 pt-2">
                         <Button className="flex-1" onClick={handleRecordPayment} disabled={paymentForm.amount <= 0}>
-                          Record Payment
+                          {isBulkPayment ? 'Clear Balance' : 'Record Payment'}
                         </Button>
                         <Button variant="outline" onClick={() => setShowPaymentForm(false)}>Cancel</Button>
                       </div>

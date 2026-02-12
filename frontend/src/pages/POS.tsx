@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProducts } from '@/contexts/ProductContext';
-import { api, Product, Sale, SaleCreate, Customer } from '@/lib/api';
+import { api, Product, Sale, SaleCreate } from '@/lib/api';
 import { Receipt } from '@/components/Receipt';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -84,29 +84,26 @@ export function POS() {
     return () => clearTimeout(timer);
   }, [studentSearch, token]);
 
-  // Auto-print receipt when a sale is completed (desktop only)
+  // Auto-print receipt when a sale is completed
   useEffect(() => {
     if (completedSale && tenant) {
-      // Only auto-print on desktop (lg breakpoint = 1024px)
-      if (window.innerWidth >= 1024) {
-        setTimeout(async () => {
-          const result = await printerService.smartPrint(
-            completedSale,
-            tenant,
-            () => window.print() // Fallback to browser print
-          );
-          
-          if (!result.usedFallback) {
-            // Direct printing succeeded
-            setSuccessMessage(`✓ ${result.message}`);
-            setTimeout(() => {
-              setSuccessMessage('');
-              setCompletedSale(null); // Auto-close receipt after successful print
-            }, 2000);
-          }
-          // If fallback was used, browser print dialog will handle it
-        }, 150);
-      }
+      setTimeout(async () => {
+        const result = await printerService.smartPrint(
+          completedSale,
+          tenant,
+          () => window.print() // Fallback to browser print
+        );
+        
+        if (!result.usedFallback) {
+          // Direct printing succeeded
+          setSuccessMessage(`✓ ${result.message}`);
+          setTimeout(() => {
+            setSuccessMessage('');
+            setCompletedSale(null); // Auto-close receipt after successful print
+          }, 2000);
+        }
+        // If fallback was used, browser print dialog will handle it
+      }, 150);
     }
   }, [completedSale, tenant]);
 
@@ -228,7 +225,7 @@ export function POS() {
 
     try {
       const saleData: SaleCreate = {
-        payment_method: paymentMethod === 'Arrears' ? 'Credit' : paymentMethod,
+        payment_method: paymentMethod,
         items: cart.map(item => ({
           product_id: item.product.id,
           quantity: item.quantity,
@@ -253,7 +250,7 @@ export function POS() {
 
       // Show success message
       const { total } = calculateTotal();
-      setSuccessMessage(`Sale #${newSale.id} completed! Total: ${formatCurrency(total)}. Add customer info from Sales History to send receipt.`);
+      setSuccessMessage(`Payment #${newSale.id} completed! Total: ${formatCurrency(total)}. Add student/parent info from Payment History to send receipt.`);
 
       // Auto-hide success message after 5 seconds
       setTimeout(() => setSuccessMessage(''), 5000);
@@ -329,7 +326,7 @@ export function POS() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search products..."
+              placeholder="Search fees..."
               className="pl-10"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -339,7 +336,7 @@ export function POS() {
             variant="outline"
             size="icon"
             onClick={() => navigate('/sales-history')}
-            title="Sales History"
+            title="Payment History"
           >
             <History className="h-4 w-4" />
           </Button>
@@ -438,8 +435,8 @@ export function POS() {
             {filteredProducts.length === 0 && (
               <div className="col-span-full text-center py-12 text-gray-500">
                 <Search className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                <p className="font-medium">No products available for sale</p>
-                <p className="text-sm mt-2">Products need to be Active and have stock &gt; 0</p>
+                <p className="font-medium">No fees or courses found</p>
+                <p className="text-sm mt-2">Courses need to be available and assigned correctly</p>
                 <Button
                   variant="outline"
                   size="sm"
@@ -447,7 +444,7 @@ export function POS() {
                   className="mt-4"
                 >
                   <RefreshCw className="w-4 h-4 mr-2" />
-                  Refresh Products
+                  Refresh
                 </Button>
               </div>
             )}
@@ -459,7 +456,7 @@ export function POS() {
           <CardHeader className="border-b">
             <CardTitle className="flex items-center text-xl">
               <ShoppingCart className="mr-2 h-5 w-5" />
-              Current Order
+              Fee Selection
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col p-0 min-h-0">
@@ -674,7 +671,7 @@ export function POS() {
                   onClick={handleCheckout}
                 >
                   <CreditCard className="mr-2 h-5 w-5" />
-                  {loading ? 'Processing...' : `Complete Sale ${formatCurrency(total)}`}
+                  {loading ? 'Processing...' : `Complete Payment ${formatCurrency(total)}`}
                 </Button>
               </div>
             )}
@@ -688,8 +685,8 @@ export function POS() {
           <Card>
             <CardContent className="text-center py-12 text-gray-500">
               <Search className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-              <p className="font-medium">No products available for sale</p>
-              <p className="text-sm mt-2">Products need to be Active and have stock &gt; 0</p>
+              <p className="font-medium">No fees or courses found</p>
+              <p className="text-sm mt-2">Courses need to be available and assigned correctly</p>
               <Button
                 variant="outline"
                 size="sm"
@@ -697,7 +694,7 @@ export function POS() {
                 className="mt-4"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Refresh Products
+                Refresh
               </Button>
             </CardContent>
           </Card>
@@ -950,7 +947,7 @@ export function POS() {
                   onClick={handleCheckout}
                 >
                   <CreditCard className="mr-2 h-5 w-5" />
-                  {loading ? 'Processing...' : `Complete Sale ${formatCurrency(total)}`}
+                  {loading ? 'Processing...' : `Complete Payment ${formatCurrency(total)}`}
                 </Button>
               </div>
             </CardContent>
@@ -974,7 +971,7 @@ export function POS() {
                 <ShoppingCart className="w-6 h-6 text-primary-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Complete Sale</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Complete Payment</h3>
                 <p className="text-sm text-gray-600">Please confirm this transaction</p>
               </div>
             </div>
@@ -983,7 +980,7 @@ export function POS() {
             <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Items:</span>
-                <span className="font-medium text-gray-900">{cart.length} product(s)</span>
+                <span className="font-medium text-gray-900">{cart.length} fee(s)/course(s)</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Payment Method:</span>
@@ -992,7 +989,7 @@ export function POS() {
               {selectedStudent && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Student:</span>
-                  <span className="font-medium text-gray-900">{selectedStudent.first_name} {selectedStudent.last_name}</span>
+                  <span className="font-medium text-gray-900">{selectedStudent.first_name} {selectedStudent.last_name} ({selectedStudent.admission_number})</span>
                 </div>
               )}
               <div className="flex justify-between pt-2 border-t border-gray-200">
@@ -1016,7 +1013,7 @@ export function POS() {
                 disabled={loading}
               >
                 <CreditCard className="w-4 h-4 mr-2" />
-                {loading ? 'Processing...' : 'Confirm Sale'}
+                {loading ? 'Processing...' : 'Confirm Payment'}
               </Button>
             </div>
           </div>

@@ -84,7 +84,7 @@ export function ReceiptOptionsModal({
 
   const handleWhatsAppReceipt = () => {
     handleUserAction();
-    const message = `✅ Receipt #${saleId}\n\n📋 ${itemCount} item${itemCount > 1 ? 's' : ''}\n💰 Total: ${formatCurrency(total)}\n💳 Payment: ${paymentMethod}\n\nThank you for your purchase!`;
+    const message = `✅ Fee Receipt #${saleId}\n\n📋 ${itemCount} fee(s)/course(s)\n💰 Total: ${formatCurrency(total)}\n💳 Payment: ${paymentMethod}\n\nThank you for choosing ${tenant.name}!`;
     const encodedMessage = encodeURIComponent(message);
 
     if (phone) {
@@ -146,7 +146,7 @@ export function ReceiptOptionsModal({
               <CheckCircle className="w-6 h-6 text-green-600" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-gray-900">Sale Complete!</h3>
+              <h3 className="text-xl font-bold text-gray-900">Payment Complete!</h3>
               <p className="text-sm text-gray-600">Receipt #{saleId}</p>
             </div>
           </div>
@@ -163,8 +163,11 @@ export function ReceiptOptionsModal({
         <div className="p-6 bg-gray-50 border-b border-gray-200">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-sm text-gray-600">{itemCount} item{itemCount > 1 ? 's' : ''}</p>
+              <p className="text-sm text-gray-600">{itemCount} fee(s)/course(s)</p>
               <p className="text-sm text-gray-600">Payment: {paymentMethod}</p>
+              {sale.student_name && (
+                <p className="text-sm font-medium text-primary-700 mt-1">Student: {sale.student_name}</p>
+              )}
             </div>
             <div className="text-right">
               <p className="text-2xl font-bold text-primary-600">{formatCurrency(total)}</p>
@@ -174,7 +177,7 @@ export function ReceiptOptionsModal({
 
         {/* Receipt Options */}
         <div className="p-6 space-y-4">
-          <p className="text-sm font-medium text-gray-700">Send receipt to customer:</p>
+          <p className="text-sm font-medium text-gray-700">Send receipt to parent/student:</p>
 
           {/* Email Option */}
           <div className="space-y-2">

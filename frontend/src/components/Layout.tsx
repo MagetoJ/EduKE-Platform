@@ -6,7 +6,7 @@ import { MobileNav } from '@/components/MobileNav';
 import { BusinessLogo } from '@/components/BusinessLogo';
 import { TenantSwitcher } from '@/components/TenantSwitcher';
 import { RoleBadge } from '@/components/RoleBadge';
-import { LayoutDashboard, ShoppingCart, Package, LogOut, Store, Settings, FileText, MapPin, ChevronLeft, ChevronRight, UserCircle, MinusCircle, BookOpen } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, LogOut, Store, Settings, FileText, MapPin, ChevronLeft, ChevronRight, UserCircle, MinusCircle, BookOpen, Calendar } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/lib/permissions';
 
@@ -41,10 +41,11 @@ export function Layout({ children }: LayoutProps) {
   const permissions = usePermissions();
 
   const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permissions: [Permission.VIEW_DASHBOARD] },
+    { path: '/dashboard', label: user?.role === 'staff' ? 'Teacher Dashboard' : 'Dashboard', icon: LayoutDashboard, permissions: [Permission.VIEW_DASHBOARD] },
     { path: '/pos', label: 'Fee Collection', icon: ShoppingCart, permissions: [Permission.MANAGE_POS] },
-    { path: '/customers', label: 'Students', icon: UserCircle, permissions: [Permission.MANAGE_POS] },
-    { path: '/gradebook', label: 'Gradebook', icon: BookOpen, permissions: [Permission.MANAGE_POS] },
+    { path: '/customers', label: 'Students', icon: UserCircle, permissions: [Permission.VIEW_STUDENT_PROFILES] },
+    { path: '/gradebook', label: 'Gradebook', icon: BookOpen, permissions: [Permission.ENTER_GRADES] },
+    { path: '/timetable', label: 'Timetable', icon: Calendar, permissions: [Permission.MANAGE_TIMETABLE] },
     { path: '/inventory', label: 'Courses & Fees', icon: Package, permissions: [Permission.MANAGE_INVENTORY] },
     { path: '/expenses', label: 'Expenses', icon: MinusCircle, permissions: [Permission.VIEW_REPORTS] },
     { path: '/reports', label: 'Academic Reports', icon: FileText, permissions: [Permission.VIEW_REPORTS] },

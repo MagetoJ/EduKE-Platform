@@ -1390,3 +1390,124 @@ If you believe this is an error, please contact {business_name} directly.
             html_content=html_content,
             plain_content=plain_content
         )
+
+
+def generate_statement_html(
+    student_name: str,
+    admission_number: str,
+    tenant_name: str,
+    tenant_address: str,
+    tenant_phone: str,
+    logo_url: str,
+    transactions: list,
+    current_balance: float,
+    currency: str,
+    generated_at: str
+) -> str:
+    """Generate HTML financial statement for a student"""
+    
+    # Escape content
+    student_name = escape(student_name)
+    admission_number = escape(admission_number)
+    tenant_name = escape(tenant_name)
+    tenant_address = escape(tenant_address or "")
+    tenant_phone = escape(tenant_phone or "")
+
+    # Build transaction rows
+    rows_html = ""
+    for txn in transactions:
+        date_str = txn['date'].strftime("%d/%m/%Y") if hasattr(txn['date'], 'strftime') else str(txn['date'])
+        type_class = "text-red-600" if txn['type'] == "Fee" else "text-green-600"
+        rows_html += f"""
+        <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; font-size: 13px;">{date_str}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; font-size: 13px;">{escape(txn['description'])}<br><small style="color: #666;">Ref: {escape(txn['reference'])}</small></td>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; font-size: 13px; font-weight: bold;" class="{type_class}">{txn['type']}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; font-size: 13px; text-align: right;">{currency} {txn['amount']:,.2f}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; font-size: 13px; text-align: right; font-weight: bold;">{currency} {txn['balance']:,.2f}</td>
+        </tr>
+        """
+
+    logo_html = f'<img src="{logo_url}" alt="{tenant_name}" style="max-width: 150px; max-height: 100px; margin-bottom: 15px;">' if logo_url else ""
+
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {{ font-family: 'Helvetica', 'Arial', sans-serif; line-height: 1.5; color: #1f2937; margin: 0; padding: 40px; background: white; }}
+        .header {{ display: flex; justify-content: space-between; border-bottom: 3px solid #10b981; padding-bottom: 20px; margin-bottom: 30px; }}
+        .school-info {{ text-align: right; }}
+        .statement-title {{ text-align: center; margin: 20px 0; }}
+        .statement-title h1 {{ color: #10b981; text-transform: uppercase; letter-spacing: 2px; margin: 0; }}
+        .student-box {{ background: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 30px; display: grid; grid-template-cols: 1fr 1fr; }}
+        .info-item {{ margin-bottom: 8px; }}
+        .info-label {{ color: #6b7280; font-size: 12px; text-transform: uppercase; font-weight: bold; }}
+        .info-value {{ font-size: 16px; font-weight: bold; }}
+        .txn-table {{ width: 100%; border-collapse: collapse; margin-bottom: 30px; }}
+        .txn-table th {{ background: #10b981; color: white; padding: 12px 10px; text-align: left; font-size: 14px; text-transform: uppercase; }}
+        .summary-box {{ margin-left: auto; width: 300px; }}
+        .summary-row {{ display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }}
+        .summary-row.total {{ border-bottom: none; font-size: 20px; font-weight: bold; color: #10b981; padding-top: 15px; }}
+        .footer {{ text-align: center; margin-top: 50px; color: #6b7280; font-size: 12px; border-top: 1px solid #e5e7eb; padding-top: 20px; }}
+        .text-red-600 {{ color: #dc2626; }}
+        .text-green-600 {{ color: #16a34a; }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            {logo_html}
+            <div style="font-size: 20px; font-weight: bold; color: #10b981;">{tenant_name}</div>
+        </div>
+        <div class="school-info">
+            <div>{tenant_address}</div>
+            <div>{tenant_phone}</div>
+            <div style="margin-top: 10px; font-weight: bold;">Date: {generated_at}</div>
+        </div>
+    </div>
+
+    <div class="statement-title">
+        <h1>Financial Statement</h1>
+    </div>
+
+    <div class="student-box">
+        <div class="info-item">
+            <div class="info-label">Student Name</div>
+            <div class="info-value">{student_name}</div>
+        </div>
+        <div class="info-item" style="text-align: right;">
+            <div class="info-label">Admission Number</div>
+            <div class="info-value">{admission_number}</div>
+        </div>
+    </div>
+
+    <table class="txn-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th style="text-align: right;">Amount</th>
+                <th style="text-align: right;">Balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            {rows_html}
+        </tbody>
+    </table>
+
+    <div class="summary-box">
+        <div class="summary-row total">
+            <span>Outstanding Balance:</span>
+            <span>{currency} {current_balance:,.2f}</span>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>This is an official document generated by EduKE School Management System.</p>
+        <p>Please contact the accounts office for any discrepancies.</p>
+    </div>
+</body>
+</html>"""

@@ -307,15 +307,24 @@ ROLE_PERMISSIONS = {
         Permission.MANAGE_POS, Permission.VIEW_SALES_HISTORY,
         Permission.MANAGE_INVENTORY, Permission.MANAGE_USERS,
         Permission.MANAGE_SETTINGS, Permission.MANAGE_BRANCHES,
+        # School Management
+        Permission.MANAGE_TIMETABLE, Permission.ENTER_GRADES,
+        Permission.VIEW_STUDENT_PROFILES, Permission.MANAGE_CURRICULUM,
     ],
     "branch_admin": [
         Permission.VIEW_DASHBOARD, Permission.VIEW_REPORTS,
         Permission.MANAGE_POS, Permission.VIEW_SALES_HISTORY,
         Permission.MANAGE_INVENTORY, Permission.MANAGE_USERS,
+        # School Management
+        Permission.MANAGE_TIMETABLE, Permission.ENTER_GRADES,
+        Permission.VIEW_STUDENT_PROFILES,
     ],
     "staff": [
-        Permission.MANAGE_POS, Permission.VIEW_SALES_HISTORY,
-        Permission.MANAGE_INVENTORY,
+        Permission.VIEW_DASHBOARD,
+        Permission.VIEW_SALES_HISTORY,
+        # School Management
+        Permission.MANAGE_TIMETABLE, Permission.ENTER_GRADES,
+        Permission.VIEW_STUDENT_PROFILES,
     ],
 }
 

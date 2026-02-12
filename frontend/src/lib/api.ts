@@ -950,6 +950,35 @@ export interface GradeRecord {
   assessment_name?: string;
 }
 
+export type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
+
+export interface TimetableEntry {
+  id: number;
+  tenant_id: number;
+  grade_level_id: number;
+  grade_level_name?: string;
+  subject_id: number;
+  subject_name?: string;
+  teacher_id?: number;
+  teacher_name?: string;
+  day_of_week: DayOfWeek;
+  start_time: string;
+  end_time: string;
+  room?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TimetableEntryCreate {
+  grade_level_id: number;
+  subject_id: number;
+  teacher_id?: number;
+  day_of_week: DayOfWeek;
+  start_time: string;
+  end_time: string;
+  room?: string;
+}
+
 async function fetchAPI(endpoint: string, options: FetchOptions = {}) {
   const { token, ...fetchOptions } = options;
   
@@ -1215,6 +1244,13 @@ export const api = {
 
   recordPayment: (token: string, customerId: number, data: PaymentCreate) =>
     fetchAPI(`/customers/${customerId}/payments`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  recordBulkPayment: (token: string, customerId: number, data: any) =>
+    fetchAPI(`/customers/${customerId}/bulk-payment`, {
       method: 'POST',
       token,
       body: JSON.stringify(data),
@@ -1752,6 +1788,23 @@ export const api = {
     return fetchAPI(`/students${queryString ? `?${queryString}` : ''}`, { token });
   },
 
+  getStudentStatement: (token: string, studentId: number) => {
+    return fetchAPI(`/students/${studentId}/statement`, { token });
+  },
+
+  getStudentStatementPdf: async (token: string, studentId: number): Promise<Blob> => {
+    const response = await fetch(`${API_BASE_URL}/students/${studentId}/statement/pdf`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to download statement');
+    }
+    return response.blob();
+  },
+
   createStudent: (token: string, data: Partial<Student>) =>
     fetchAPI('/students', {
       method: 'POST',
@@ -1779,5 +1832,37 @@ export const api = {
       method: 'POST',
       token,
       body: JSON.stringify(data),
+    }),
+    
+  getTimetable: (token: string, gradeLevelId?: number, teacherId?: number, day?: DayOfWeek) => {
+    const params = new URLSearchParams();
+    if (gradeLevelId) params.append('grade_level_id', gradeLevelId.toString());
+    if (teacherId) params.append('teacher_id', teacherId.toString());
+    if (day) params.append('day', day);
+    const queryString = params.toString();
+    return fetchAPI(`/timetable${queryString ? `?${queryString}` : ''}`, { token });
+  },
+
+  getMyTimetable: (token: string): Promise<TimetableEntry[]> =>
+    fetchAPI('/timetable/me', { token }),
+
+  createTimetableEntry: (token: string, data: TimetableEntryCreate) =>
+    fetchAPI('/timetable', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  updateTimetableEntry: (token: string, entryId: number, data: Partial<TimetableEntryCreate>) =>
+    fetchAPI(`/timetable/${entryId}`, {
+      method: 'PUT',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  deleteTimetableEntry: (token: string, entryId: number) =>
+    fetchAPI(`/timetable/${entryId}`, {
+      method: 'DELETE',
+      token,
     }),
 };

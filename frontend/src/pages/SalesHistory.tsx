@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { ProductImage } from '@/components/ProductImage';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { DollarSign, ShoppingCart, ChevronDown, ChevronUp, Package, Mail, MessageCircle, Edit, Save, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { DollarSign, ShoppingCart, ChevronDown, ChevronUp, Package, Mail, MessageCircle, Edit, Save, X, CheckCircle, AlertCircle, Printer } from 'lucide-react';
 import { generateReceiptText, generateWhatsAppLink } from '@/lib/receiptText';
+import { ReceiptOptionsModal } from '@/components/ReceiptOptionsModal';
+import { Receipt } from '@/components/Receipt';
 
 interface SalesSummary {
   total_revenue: number;
@@ -49,6 +51,7 @@ export function SalesHistory() {
   const [sendingEmail, setSendingEmail] = useState<number | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [printingSale, setPrintingSale] = useState<Sale | null>(null);
 
   // Date range state with localStorage persistence
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange>(() => {
@@ -153,6 +156,40 @@ export function SalesHistory() {
     fetchData();
   }, [token, selectedDateRange]);
 
+  const handlePrintSummary = async () => {
+    if (!tenant || !summary) return;
+    
+    let text = `${tenant.name}\n`;
+    text += `PAYMENT HISTORY REPORT\n`;
+    text += `Range: ${selectedOption.label}\n`;
+    text += `Date: ${new Date().toLocaleString()}\n`;
+    text += `--------------------------------\n`;
+
+    text += `Total Collections: ${formatCurrency(summary.total_revenue)}\n`;
+    text += `Total Receipts: ${summary.total_sales}\n`;
+    text += `--------------------------------\n`;
+    text += `RECENT TRANSACTIONS:\n`;
+    
+    sales.slice(0, 15).forEach(s => {
+      text += `${formatDate(s.created_at)}\n`;
+      text += `  ${s.student_name || s.customer_name || 'Student'}: ${formatCurrency(s.total)}\n`;
+    });
+
+    text += `--------------------------------\n`;
+    text += `Powered by mBiz\n`;
+
+    try {
+      const result = await printerService.printSummary(text);
+      if (!result.success) {
+        // Fallback to browser print
+        window.print();
+      }
+    } catch (error: any) {
+      setErrorMessage(error.message || 'Failed to print');
+      setTimeout(() => setErrorMessage(''), 5000);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -198,13 +235,26 @@ export function SalesHistory() {
 
       {/* Header with Date Range Filter */}
       <div className="flex flex-col gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900">
-            {isStaff ? 'My Payment History' : 'Fee Payment History'}
-          </h1>
-          <p className="text-sm md:text-base text-gray-600 mt-1">
-            View and track all fee payment transactions
-          </p>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900">
+              {isStaff ? 'My Payment History' : 'Fee Payment History'}
+            </h1>
+            <p className="text-sm md:text-base text-gray-600 mt-1">
+              View and track all fee payment transactions
+            </p>
+          </div>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrintSummary}
+            disabled={loading || !summary}
+            className="w-full sm:w-auto"
+          >
+            <Printer className="w-4 h-4 mr-2" />
+            Print Report
+          </Button>
         </div>
 
         {/* Date Range Filter Buttons */}
@@ -310,7 +360,7 @@ export function SalesHistory() {
                         )}
                       </td>
                       <td className="p-4">{formatDate(sale.created_at)}</td>
-                      <td className="p-4 font-medium">{sale.customer_name || 'Generic Student'}</td>
+                      <td className="p-4 font-medium">{sale.student_name || sale.customer_name || 'Generic Student'}</td>
                       <td className="p-4">
                         {sale.branch ? (
                           <div className="flex flex-col">
@@ -499,6 +549,16 @@ export function SalesHistory() {
                                   {sale.whatsapp_sent && <CheckCircle className="h-3 w-3 text-green-600" />}
                                   <MessageCircle className="h-3 w-3" />
                                   WhatsApp
+                                </Button>
+                                
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setPrintingSale(sale)}
+                                  className="flex items-center gap-1"
+                                >
+                                  <Printer className="h-3 w-3" />
+                                  Print Receipt
                                 </Button>
                               </div>
                               
@@ -743,6 +803,16 @@ export function SalesHistory() {
                         <MessageCircle className="h-3 w-3 mr-1" />
                         WhatsApp
                       </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPrintingSale(sale)}
+                        className="flex-1"
+                      >
+                        <Printer className="h-3 w-3 mr-1" />
+                        Print
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -759,6 +829,21 @@ export function SalesHistory() {
             </CardContent>
           </Card>
         )}
+      </div>
+
+      {/* Receipt Options Modal */}
+      {printingSale && tenant && (
+        <ReceiptOptionsModal
+          isOpen={!!printingSale}
+          onClose={() => setPrintingSale(null)}
+          sale={printingSale}
+          tenant={tenant}
+        />
+      )}
+
+      {/* Receipt - Hidden, for browser print only */}
+      <div className="hidden print:block">
+        {printingSale && <Receipt sale={printingSale} />}
       </div>
     </div>
   );

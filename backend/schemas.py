@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
 from datetime import datetime, date
 from enum import Enum
-from models import UserRole, OrgRole, OrderStatus, StockMovementType, SubscriptionPlan, AssessmentType
+from models import UserRole, OrgRole, OrderStatus, StockMovementType, SubscriptionPlan, AssessmentType, DayOfWeek
 
 
 # Receipt Delivery Method Enum
@@ -582,6 +582,7 @@ class SaleResponse(BaseModel):
     branch_id: Optional[int] = None  # NEW: Track which branch created the sale
     customer_id: Optional[int] = None
     student_id: Optional[int] = None  # LINK TO STUDENT
+    student_name: Optional[str] = None  # COMPUTED PROPERTY
     customer_name: Optional[str] = None
     customer_email: Optional[str] = None  # Customer email for receipt delivery
     customer_phone: Optional[str] = None  # Customer phone for WhatsApp receipt
@@ -1150,6 +1151,14 @@ class PaymentCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class BulkPaymentCreate(BaseModel):
+    """Schema for recording a bulk payment against total balance"""
+    amount: float = Field(..., gt=0)
+    payment_method: str = Field(..., min_length=1)
+    payment_date: date
+    notes: Optional[str] = None
+
+
 class PaymentResponse(BaseModel):
     """Schema for payment response"""
     id: int
@@ -1392,6 +1401,74 @@ class GradeRecordResponse(GradeRecordBase):
     student_name: Optional[str] = None
     subject_name: Optional[str] = None
     assessment_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Student Statement Schemas
+class StatementTransaction(BaseModel):
+    """Schema for a single transaction in a financial statement"""
+    date: datetime
+    description: str
+    reference: str  # e.g., "Sale #123" or "Payment #456"
+    type: str  # "Fee" (Debit) or "Payment" (Credit)
+    amount: float
+    balance: float  # Running balance after this transaction
+
+
+class StudentStatementResponse(BaseModel):
+    """Schema for a full student financial statement"""
+    student_id: int
+    student_name: str
+    admission_number: str
+    current_balance: float
+    currency: str
+    generated_at: datetime
+    transactions: List[StatementTransaction]
+
+
+class StudentFinancialSummary(BaseModel):
+    """Lightweight financial summary for student listings"""
+    student_id: int
+    admission_number: str
+    total_fees_billed: float
+    total_paid: float
+    current_balance: float
+    last_payment_date: Optional[datetime] = None
+    status: str  # "cleared", "partial", "overdue"
+
+
+# Timetable Schemas
+class TimetableEntryBase(BaseModel):
+    grade_level_id: int
+    subject_id: int
+    teacher_id: Optional[int] = None
+    day_of_week: DayOfWeek
+    start_time: str = Field(..., pattern=r"^\d{2}:\d{2}$")  # HH:MM
+    end_time: str = Field(..., pattern=r"^\d{2}:\d{2}$")    # HH:MM
+    room: Optional[str] = Field(None, max_length=50)
+
+class TimetableEntryCreate(TimetableEntryBase):
+    pass
+
+class TimetableEntryUpdate(BaseModel):
+    grade_level_id: Optional[int] = None
+    subject_id: Optional[int] = None
+    teacher_id: Optional[int] = None
+    day_of_week: Optional[DayOfWeek] = None
+    start_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
+    end_time: Optional[str] = Field(None, pattern=r"^\d{2}:\d{2}$")
+    room: Optional[str] = Field(None, max_length=50)
+
+class TimetableEntryResponse(TimetableEntryBase):
+    id: int
+    tenant_id: int
+    created_at: datetime
+    updated_at: datetime
+    grade_level_name: Optional[str] = None
+    subject_name: Optional[str] = None
+    teacher_name: Optional[str] = None
 
     class Config:
         from_attributes = True
