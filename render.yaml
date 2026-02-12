@@ -49,8 +49,8 @@ services:
       # IMPORTANT: List all allowed frontend origins (comma-separated, no spaces)
       # The backend will automatically strip whitespace, but it's best practice to avoid it
       - key: CORS_ORIGINS
-        value: https://pos.eduke.com,https://www.pos.eduke.com,https://eduke-frontend.onrender.com
-        # Note: Custom domains (pos.eduke.com) + Render default domain for fallback
+        value: https://eduke.app,https://www.eduke.app,https://eduke-frontend.onrender.com
+        # Note: Custom domains (eduke.app) + Render default domain for fallback
         # Add new origins as needed when deploying to additional domains
       
       # ===== TIMEZONE =====
@@ -75,7 +75,7 @@ services:
         sync: false  # Set in Render dashboard
       
       - key: POSTMARK_FROM_EMAIL
-        value: noreply@eduke.com
+        value: noreply@eduke.app
       
       - key: POSTMARK_FROM_NAME
         value: EduKE Team
@@ -161,7 +161,7 @@ services:
       
       # ===== FRONTEND URL =====
       - key: FRONTEND_URL
-        value: https://eduke-frontend.onrender.com
+        value: https://eduke.app
         # Update with your actual frontend URL (custom domain or Render URL)
 
   # ==========================================
